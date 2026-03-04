@@ -1,0 +1,427 @@
+# 🚀 OmniLang - Getting Started Guide
+
+## What is OmniLang?
+
+OmniLang is an **executable Markdown format** that lets you:
+
+- 📊 Embed data directly in documents
+- 🧮 Run computations and analysis
+- 📈 Generate charts and visualizations
+- 🔗 Reference values throughout your text
+- 📄 Export to beautiful standalone HTML
+
+Think of it as **Jupyter notebooks meets Markdown** - the simplicity of Markdown with the power of computational notebooks.
+
+## Installation & Setup
+
+```bash
+# 1. You already have the files! Just verify:
+ls omni-lang.js omni-cli.js
+
+# 2. Test the installation:
+node test.js
+
+# 3. Build an example:
+node omni-cli.js build chart-demo.omd
+
+# 4. Open the generated HTML file in your browser:
+open chart-demo.html  # Mac
+xdg-open chart-demo.html  # Linux
+start chart-demo.html  # Windows
+```
+
+## Your First OmniLang Document
+
+### Step 1: Create a file `my-first.omd`
+
+```markdown
+# My First OmniLang Document
+
+## Load Some Data
+
+```omni:data name="myNumbers"
+[100, 200, 300, 400, 500]
+```
+
+## Do a Calculation
+
+```omni:compute name="total"
+return sum(data.myNumbers);
+```
+
+## Show the Results
+
+The sum of my numbers is: **`omni:inline computed.total`**
+
+That’s **`omni:inline len(data.myNumbers)`** numbers with an average of **`omni:inline computed.total / len(data.myNumbers)`**!
+
+## Visualize It
+
+```omni:chart type="bar" title="My Numbers"
+[
+  {"label": "First", "value": 100},
+  {"label": "Second", "value": 200},
+  {"label": "Third", "value": 300},
+  {"label": "Fourth", "value": 400},
+  {"label": "Fifth", "value": 500}
+]
+```
+
+```
+### Step 2: Build it
+
+```bash
+node omni-cli.js build my-first.omd
+```
+
+### Step 3: Open my-first.html
+
+You’ll see a fully rendered HTML page with your data, calculations, and chart!
+
+## Understanding the Syntax
+
+### 1. Data Fences
+
+Load JSON data with a name you can reference later:
+
+```markdown
+```omni:data name="products"
+[
+  {"name": "Widget", "price": 29.99, "sold": 150},
+  {"name": "Gadget", "price": 49.99, "sold": 200}
+]
+```
+
+```
+Access with: `data.products`
+
+### 2. Compute Fences
+
+Run JavaScript to process your data:
+
+```markdown
+```omni:compute name="revenue"
+const total = sum(data.products.map(p => p.price * p.sold));
+return total;
+```
+
+```
+Access with: `computed.revenue`
+
+### 3. Chart Fences
+
+Create visualizations:
+
+```markdown
+```omni:chart type="bar" data="products" x="name" y="sold" title="Sales by Product"
+```
+
+```
+Chart types: `bar`, `line`, `pie`, `doughnut`
+
+### 4. Inline Expressions
+
+Reference data anywhere in your text:
+
+```markdown
+Total revenue: $```omni:inline computed.revenue```
+Best seller: ```omni:inline max(data.products, 'sold')```
+```
+
+## Built-in Helper Functions
+
+OmniLang provides these functions for data manipulation:
+
+|Function             |Description|Example                                    |
+|---------------------|-----------|-------------------------------------------|
+|`len(array)`         |Get length |`len(data.sales)`                          |
+|`sum(array, key?)`   |Sum values |`sum(data.sales, 'revenue')`               |
+|`avg(array, key?)`   |Average    |`avg(data.sales, 'revenue')`               |
+|`max(array, key?)`   |Maximum    |`max(data.sales, 'revenue')`               |
+|`min(array, key?)`   |Minimum    |`min(data.sales, 'revenue')`               |
+|`filter(array, fn)`  |Filter     |`filter(data.sales, s => s.revenue > 1000)`|
+|`map(array, fn)`     |Transform  |`map(data.sales, s => s.revenue * 1.1)`    |
+|`groupBy(array, key)`|Group by   |`groupBy(data.sales, 'region')`            |
+
+## Real-World Examples
+
+### Example 1: Sales Report
+
+```markdown
+# Q4 Sales Report
+
+```omni:data name="sales"
+[
+  {"month": "Oct", "revenue": 45000},
+  {"month": "Nov", "revenue": 52000},
+  {"month": "Dec", "revenue": 68000}
+]
+```
+
+```omni:compute name="total"
+return sum(data.sales, 'revenue');
+```
+
+Total Q4 Revenue: $`omni:inline computed.total.toLocaleString()`
+
+```omni:chart type="line" data="sales" x="month" y="revenue" title="Q4 Revenue Trend"
+
+```
+
+```
+### Example 2: Team Metrics
+
+```markdown
+# Team Performance
+
+```omni:data name="team"
+[
+  {"member": "Alice", "tasks": 45, "rating": 4.8},
+  {"member": "Bob", "tasks": 38, "rating": 4.5},
+  {"member": "Carol", "tasks": 52, "rating": 4.9}
+]
+```
+
+```omni:compute name="topPerformer"
+return [...data.team].sort((a, b) => b.rating - a.rating)[0];
+```
+
+Top performer: **`omni:inline computed.topPerformer.member`** with a rating of `omni:inline computed.topPerformer.rating`!
+
+Team completed `omni:inline sum(data.team, 'tasks')` tasks total.
+
+```
+### Example 3: Product Comparison
+
+```markdown
+# Product Analysis
+
+```omni:data name="products"
+[
+  {"name": "Pro", "users": 1200, "revenue": 48000, "churn": 0.05},
+  {"name": "Basic", "users": 3500, "revenue": 35000, "churn": 0.12},
+  {"name": "Enterprise", "users": 150, "revenue": 75000, "churn": 0.02}
+]
+```
+
+```omni:compute name="arpu"
+return data.products.map(p => ({
+  name: p.name,
+  arpu: Math.round(p.revenue / p.users)
+}));
+```
+
+```omni:chart type="bar" data="arpu" x="name" y="arpu" title="Average Revenue Per User"
+
+```
+
+Lowest churn: `omni:inline min(data.products, 'churn') * 100`%
+
+```
+## CLI Commands Reference
+
+### Build a document
+
+```bash
+node omni-cli.js build input.omd
+node omni-cli.js build input.omd -o custom-output.html
+```
+
+### Watch for changes (auto-rebuild)
+
+```bash
+node omni-cli.js watch document.omd
+node omni-cli.js watch document.omd --verbose
+```
+
+### Validate document
+
+```bash
+node omni-cli.js validate document.omd
+```
+
+## Tips & Best Practices
+
+### 1. Name your data and compute blocks
+
+```markdown
+✅ GOOD:
+```omni:data name="sales"
+```omni:compute name="total"
+
+❌ BAD:
+```omni:data
+```omni:compute
+```
+
+Named blocks can be referenced by other blocks and inline expressions.
+
+### 2. Keep compute blocks focused
+
+```markdown
+✅ GOOD:
+```omni:compute name="revenue"
+return sum(data.sales, 'amount');
+```
+
+```omni:compute name="profit"
+return computed.revenue - sum(data.costs, 'amount');
+```
+
+❌ BAD:
+
+```omni:compute
+// doing too many things in one block
+const revenue = ...
+const costs = ...
+const profit = ...
+return {revenue, costs, profit};
+```
+
+```
+### 3. Use inline expressions for simple values
+
+```markdown
+✅ GOOD:
+Total: ```omni:inline sum(data.sales, 'revenue')```
+
+❌ OVERKILL:
+```omni:compute name="total"
+return sum(data.sales, 'revenue');
+```
+
+Total: `omni:inline computed.total`
+
+```
+### 4. Format numbers for readability
+
+```markdown
+✅ GOOD:
+$```omni:inline computed.revenue.toLocaleString()```
+
+✅ GOOD:
+```omni:inline (computed.percent * 100).toFixed(1)```%
+```
+
+## Common Patterns
+
+### Pattern 1: Filter and Analyze
+
+```markdown
+```omni:compute name="highValue"
+return filter(data.customers, c => c.value > 10000);
+```
+
+High-value customers: `omni:inline len(computed.highValue)`
+Their total value: $`omni:inline sum(computed.highValue, 'value')`
+
+```
+### Pattern 2: Sort and Display Top N
+
+```markdown
+```omni:compute name="top5"
+return [...data.products]
+  .sort((a, b) => b.sales - a.sales)
+  .slice(0, 5);
+```
+
+```omni:chart type="bar" data="top5" x="name" y="sales" title="Top 5 Products"
+
+```
+
+```
+### Pattern 3: Group and Aggregate
+
+```markdown
+```omni:compute name="byRegion"
+const grouped = groupBy(data.sales, 'region');
+return Object.entries(grouped).map(([region, sales]) => ({
+  region,
+  total: sum(sales, 'amount')
+}));
+```
+
+```omni:chart type="pie" data="byRegion" x="region" y="total"
+
+```
+
+```
+## Troubleshooting
+
+### Charts not showing?
+
+Make sure you have either:
+- A `data` attribute pointing to loaded data: `data="myData"`
+- Inline JSON in the fence content
+
+### "Data source not found" error?
+
+Check that:
+1. You've created a `data` fence with that name
+2. The name matches exactly (case-sensitive)
+3. The data fence comes before the chart/compute that uses it
+
+### Inline expression shows "[Error: ...]"?
+
+Common causes:
+- Referencing data that doesn't exist
+- Syntax error in the expression
+- Missing parentheses in function calls
+
+### Numbers look weird?
+
+Use formatting:
+- `.toFixed(2)` for decimals
+- `.toLocaleString()` for thousands separators
+- `Math.round()` for integers
+
+## What's Next?
+
+### Current Features (v0.1)
+- ✅ JSON data loading
+- ✅ JavaScript computation
+- ✅ Chart.js visualizations
+- ✅ Inline expressions
+- ✅ Static HTML export
+- ✅ CLI tool
+
+### Coming Soon (v0.2)
+- 🔜 YAML/TOML/CSV data formats
+- 🔜 SQL queries
+- 🔜 Table rendering
+- 🔜 Python code execution
+- 🔜 File imports
+
+### Future (v1.0)
+- 🔮 Interactive components
+- 🔮 Real-time data
+- 🔮 VSCode extension
+- 🔮 Type validation
+- 🔮 Export to PDF/DOCX
+
+## Get Involved
+
+Found a bug? Have an idea? Want to contribute?
+
+1. Try the examples: `chart-demo.omd`, `simple-example.omd`
+2. Create your own documents
+3. Share your feedback!
+
+## Examples Included
+
+Check out these example files:
+- `chart-demo.omd` - All chart types
+- `simple-example.omd` - Basic features
+- `example-report.omd` - Complex analysis
+
+Build them with:
+```bash
+node omni-cli.js build chart-demo.omd
+node omni-cli.js build simple-example.omd
+```
+
+-----
+
+Happy OmniLang-ing! 🎉
+
+*Transform your documents from static to dynamic!*

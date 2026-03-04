@@ -1,0 +1,551 @@
+# OmniLang: Project Architecture & Roadmap
+
+## 🎯 Vision Statement
+
+**Transform Markdown from a static documentation format into a dynamic, computational platform that unifies data, logic, and visualization.**
+
+OmniLang bridges the gap between:
+
+- Static documents (Markdown, PDF)
+- Computational notebooks (Jupyter, Observable)
+- Data formats (JSON, YAML, TOML)
+- Modern web applications
+
+## 📐 Core Architecture
+
+### System Design
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  OmniLang Ecosystem                      │
+└─────────────────────────────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+   ┌────▼────┐       ┌─────▼─────┐     ┌─────▼─────┐
+   │  Core   │       │    CLI    │     │  Runtime  │
+   │ Engine  │       │   Tool    │     │  Browser  │
+   └────┬────┘       └─────┬─────┘     └─────┬─────┘
+        │                  │                  │
+        └──────────────────┴──────────────────┘
+                           │
+        ┌──────────────────┴──────────────────┐
+        │                                     │
+   ┌────▼────┐                           ┌───▼────┐
+   │ Parsers │                           │Renderers│
+   └─────────┘                           └────────┘
+```
+
+### Component Breakdown
+
+**1. Core Engine (`omni-lang.js`)**
+
+- Fence parser (regex-based)
+- AST builder
+- Execution engine
+- Scope management
+- Dependency analyzer (basic)
+- Helper function library
+
+**2. CLI Tool (`omni-cli.js`)**
+
+- Build command (compile to HTML)
+- Watch command (auto-rebuild)
+- Validate command (syntax check)
+- File I/O handling
+
+**3. Renderers**
+
+- Markdown → HTML converter
+- Chart.js integration
+- Template engine (basic)
+
+## 🔧 Current Implementation (v0.1)
+
+### What Works ✅
+
+**Fence Types:**
+
+- `omni:data` - JSON data loading
+- `omni:compute` - JavaScript execution
+- `omni:chart` - Chart.js visualizations
+
+**Features:**
+
+- Named data blocks
+- Named compute blocks
+- Inline expression evaluation
+- Static HTML compilation
+- Built-in helper functions
+- CLI with build/watch/validate
+
+**Helper Functions:**
+
+- `len()`, `sum()`, `avg()`, `max()`, `min()`
+- `filter()`, `map()`, `groupBy()`
+- Access to Math, JSON, etc.
+
+### Known Limitations ⚠️
+
+1. **Dependency Order** - Sequential execution means charts/compute referencing other computed values can fail if order is wrong
+1. **Inline Fence Type** - Currently shows as “unknown type” but still works
+1. **Error Handling** - Basic, could be more graceful
+1. **Data Formats** - JSON only (no YAML/TOML/CSV yet)
+1. **Output Formats** - HTML only (no PDF/DOCX yet)
+
+## 🗺️ Development Roadmap
+
+### Phase 2: Enhanced Data & Computation (v0.2)
+
+**New Data Sources:**
+
+- `omni:yaml` - YAML data loading
+- `omni:toml` - TOML configuration
+- `omni:csv` - CSV with automatic parsing
+- `omni:fetch` - HTTP data fetching
+- `omni:import` - External file references
+
+**Advanced Computation:**
+
+- `omni:python` - Python code execution (via Pyodide)
+- `omni:sql` - SQL queries on data
+- `omni:query` - Custom query language
+
+**Better Dependencies:**
+
+- True topological sort
+- Parallel execution where possible
+- Circular dependency detection
+- Lazy evaluation
+
+### Phase 3: Interactive & Visual (v0.3)
+
+**New Visualizations:**
+
+- `omni:table` - Sortable, filterable tables
+- `omni:graph` - Network/graph diagrams
+- `omni:map` - Geographic visualizations
+- `omni:timeline` - Temporal visualizations
+- `omni:3d` - Three.js integration
+
+**Interactive Components:**
+
+- `omni:react` - React components
+- `omni:vue` - Vue components
+- `omni:form` - Form inputs
+- `omni:slider` - Range sliders
+- `omni:button` - Action buttons
+
+**Reactivity:**
+
+- State management
+- Event handling
+- Real-time updates
+- WebSocket support
+
+### Phase 4: Developer Experience (v0.4)
+
+**Tooling:**
+
+- VSCode extension with:
+  - Syntax highlighting
+  - Intellisense/autocomplete
+  - Live preview
+  - Fence execution (like Jupyter cells)
+  - Debugging support
+- Language Server Protocol (LSP)
+- Online playground/editor
+- Documentation generator
+
+**Type System:**
+
+- `omni:schema` - Type definitions
+- Runtime validation
+- Static analysis
+- Type inference
+
+**Plugin System:**
+
+- Custom fence types
+- Custom functions
+- Custom renderers
+- Community plugins
+
+### Phase 5: Production Ready (v1.0)
+
+**Format Conversion:**
+
+- Export to PDF (via headless browser)
+- Export to DOCX (via template)
+- Export to Jupyter notebook
+- Import from existing formats
+
+**Performance:**
+
+- Caching system
+- Incremental builds
+- Code splitting
+- Lazy loading
+
+**Security:**
+
+- Sandboxed execution
+- Permission system
+- Content security policy
+- Trusted/untrusted mode
+
+**Collaboration:**
+
+- Real-time multi-user editing
+- Comments and annotations
+- Version control integration
+- Diff/merge support
+
+## 💡 Advanced Features (Future)
+
+### Template/Macro System
+
+```markdown
+```omni:template name="MetricCard"
+params:
+  title: string
+  value: number
+  change: number
+
+## ${title}
+**${value}** (${change > 0 ? '↑' : '↓'} ${Math.abs(change)}%)
+```
+
+```omni:use template="MetricCard" title="Revenue" value=50000 change=12
+
+```
+
+```
+### Module System
+
+```markdown
+```omni:import from="./common/metrics.omd"
+  - calculateROI
+  - formatCurrency
+```
+
+```omni:export
+  - myCustomFunction
+  - myDataset
+```
+
+```
+### Conditional Rendering
+
+```markdown
+```omni:if condition="computed.revenue > 100000"
+## 🎉 Congratulations! Target exceeded!
+```
+
+```omni:else
+## Keep pushing toward our goal!
+```
+
+```
+### Loops and Iteration
+
+```markdown
+```omni:for item in data.products
+### ${item.name}
+Price: $${item.price}
+```
+
+```
+### Live Data Sources
+
+```markdown
+```omni:fetch name="liveData" url="https://api.example.com/data" refresh=60
+```
+
+This data auto-refreshes every 60 seconds!
+
+```
+## 🎨 Use Cases
+
+### 1. Business Intelligence
+
+```markdown
+# Executive Dashboard
+
+```omni:fetch name="metrics" url="/api/kpis"
+```omni:chart type="bar" data="metrics" x="department" y="revenue"
+```
+
+Real-time business metrics that update automatically.
+
+```
+### 2. Research Papers
+
+```markdown
+# Research Findings
+
+```omni:data name="experiments"
+[/* lab data */]
+```
+
+```omni:python
+import scipy.stats as stats
+p_value = stats.ttest_ind(group_a, group_b).pvalue
+```
+
+Statistical significance: p = `omni:inline computed.p_value`
+
+```
+### 3. API Documentation
+
+```markdown
+# API Reference
+
+```omni:schema name="User"
+{
+  "name": "string",
+  "email": "string",
+  "age": "number"
+}
+```
+
+```omni:test
+POST /users {"name": "Test", "email": "test@example.com", "age": 25}
+expect: 201 Created
+```
+
+```
+### 4. Interactive Tutorials
+
+```markdown
+# Learn JavaScript
+
+```omni:code editable=true
+const greet = (name) => `Hello, ${name}!`;
+console.log(greet('World'));
+```
+
+Try changing the code above!
+
+```
+### 5. Data Science Reports
+
+```markdown
+# Model Performance
+
+```omni:python name="model"
+from sklearn.ensemble import RandomForestClassifier
+# ... train model ...
+```
+
+```omni:chart
+Plot confusion matrix from model.predictions
+```
+
+```
+## 🏗️ Technical Decisions
+
+### Language Choice
+
+**Current: JavaScript/Node.js**
+- ✅ Easy distribution
+- ✅ Browser compatibility
+- ✅ Rich ecosystem
+- ❌ Less performant than compiled languages
+
+**Future Considerations:**
+- Rust core for performance
+- WASM compilation for browser
+- Language bindings (Python, Ruby)
+
+### Parser Strategy
+
+**Current: Regex-based**
+- ✅ Simple, fast for basic cases
+- ✅ Easy to extend
+- ❌ Limited error messages
+- ❌ Fragile for complex nesting
+
+**Future: Proper Parser**
+- PEG grammar (parsimmon, peggy)
+- Better error recovery
+- Source maps
+- AST transformations
+
+### Execution Model
+
+**Current: Synchronous interpretation**
+- ✅ Simple to implement
+- ❌ Sequential only
+- ❌ No optimization
+
+**Future: Smart execution**
+- Topological sorting
+- Parallel where possible
+- Memoization/caching
+- JIT for hot paths
+
+## 📊 Comparison with Alternatives
+
+| Feature | OmniLang | Jupyter | R Markdown | MDX | Observable |
+|---------|----------|---------|------------|-----|------------|
+| Markdown-based | ✅ | ❌ | ✅ | ✅ | ❌ |
+| No server needed | ✅ | ❌ | ❌ | Depends | ❌ |
+| Multiple languages | 🔜 | ✅ | ✅ | ❌ | ✅ |
+| Static export | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Interactive UI | 🔜 | Limited | Limited | ✅ | ✅ |
+| Data viz | ✅ | ✅ | ✅ | Depends | ✅ |
+| Version control friendly | ✅ | ❌ | ✅ | ✅ | ❌ |
+
+**OmniLang's Niche:**
+- Simpler than Jupyter (just Markdown!)
+- More powerful than MDX (computation!)
+- More portable than Observable (static HTML!)
+- More flexible than R Markdown (any language!)
+
+## 🚀 Getting Started Guide
+
+See `GETTING-STARTED.md` for comprehensive tutorials.
+
+**Quick Start:**
+```bash
+# 1. Test installation
+node test.js
+
+# 2. Build examples
+node omni-cli.js build chart-demo.omd
+node omni-cli.js build simple-example.omd
+
+# 3. Create your own
+echo '# My Doc' > my-doc.omd
+node omni-cli.js build my-doc.omd
+```
+
+## 📦 Files in This Project
+
+```
+omni-lang/
+├── omni-lang.js           # Core engine (360 lines)
+├── omni-cli.js            # CLI tool (230 lines)
+├── package.json           # NPM configuration
+├── README.md              # Main documentation
+├── GETTING-STARTED.md     # Tutorial guide
+├── ARCHITECTURE.md        # This file
+│
+├── test.js                # Test runner
+│
+├── chart-demo.omd         # Chart examples
+├── simple-example.omd     # Basic features
+├── advanced-example.omd   # Complex patterns
+├── example-report.omd     # Full report
+│
+└── *.html                 # Generated outputs
+```
+
+## 🤝 Contributing
+
+**Priority Areas:**
+
+1. **Fix dependency ordering** - Implement proper topological sort
+1. **Add data formats** - YAML, TOML, CSV parsers
+1. **Python support** - Integrate Pyodide
+1. **Better error messages** - Show line numbers, context
+1. **Table rendering** - Create table fence type
+1. **Tests** - Unit tests for all components
+
+**How to Contribute:**
+
+1. Pick a feature from the roadmap
+1. Create a branch
+1. Implement with tests
+1. Document in README
+1. Submit PR
+
+## 📈 Success Metrics
+
+**v0.1 Goals:** ✅
+
+- [x] Parse 3+ fence types
+- [x] Execute JavaScript
+- [x] Generate charts
+- [x] CLI tool works
+- [x] Examples compile
+
+**v0.2 Goals:**
+
+- [ ] Handle 10+ data types
+- [ ] Dependency resolution
+- [ ] Python execution
+- [ ] Table rendering
+- [ ] 90%+ test coverage
+
+**v1.0 Goals:**
+
+- [ ] VSCode extension
+- [ ] 1000+ GitHub stars
+- [ ] Production use cases
+- [ ] Plugin ecosystem
+- [ ] Full documentation site
+
+## 🎓 Learning Resources
+
+**To understand OmniLang, learn:**
+
+- Markdown syntax
+- JavaScript basics
+- JSON data format
+- Chart.js library
+- Regular expressions (for extending)
+
+**To contribute, learn:**
+
+- Parser design (PEG grammars)
+- AST manipulation
+- Compiler theory basics
+- Language design principles
+
+## 🔮 Long-term Vision
+
+**Year 1:** Stable v1.0, VSCode extension, community adoption
+
+**Year 2:**
+
+- Major company adoption
+- Plugin marketplace
+- Cloud platform for sharing
+- Mobile apps
+
+**Year 3:**
+
+- Industry standard for computational docs
+- Integration with popular tools
+- Educational adoption
+- Research paper citations
+
+**The Dream:**
+
+- OmniLang becomes the de facto format for:
+  - Data analysis reports
+  - API documentation
+  - Research papers
+  - Interactive tutorials
+  - Business dashboards
+  - Technical specifications
+
+-----
+
+## 💬 Questions? Ideas?
+
+This is just the beginning. The future of documents is:
+
+- **Dynamic** not static
+- **Computational** not just descriptive
+- **Visual** not just textual
+- **Interactive** not passive
+
+**OmniLang is building that future.**
+
+-----
+
+*Architecture Document v0.1*  
+*Last Updated: January 14, 2026*

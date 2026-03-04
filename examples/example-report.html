@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:;">
+  <title>OmniLang Document</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+      color: #333;
+      background: #fff;
+    }
+    h1 { font-size: 2.5em; margin-bottom: 0.5em; }
+    h2 { font-size: 2em; margin-top: 1.5em; border-bottom: 2px solid #eee; padding-bottom: 0.3em; }
+    h3 { font-size: 1.5em; margin-top: 1.2em; }
+    h4 { font-size: 1.25em; margin-top: 1em; }
+    a { color: #2196f3; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: 'Monaco', 'Menlo', monospace; font-size: 0.9em; }
+    pre { background: #f5f5f5; padding: 15px; border-radius: 6px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
+    hr { border: none; border-top: 1px solid #eee; margin: 2em 0; }
+    ul { padding-left: 1.5em; }
+    li { margin: 0.5em 0; }
+    .omni-data-loaded {
+      background: #e8f5e9;
+      padding: 10px 15px;
+      border-left: 4px solid #4caf50;
+      margin: 15px 0;
+      font-size: 0.9em;
+      border-radius: 0 4px 4px 0;
+    }
+    .omni-compute-result {
+      background: #e3f2fd;
+      padding: 10px 15px;
+      border-left: 4px solid #2196f3;
+      margin: 15px 0;
+      font-size: 0.9em;
+      border-radius: 0 4px 4px 0;
+    }
+    .omni-error {
+      background: #ffebee;
+      padding: 10px 15px;
+      border-left: 4px solid #f44336;
+      margin: 15px 0;
+      color: #c62828;
+      border-radius: 0 4px 4px 0;
+    }
+    .omni-chart {
+      margin: 30px 0;
+      padding: 20px;
+      background: #fafafa;
+      border-radius: 8px;
+    }
+    .omni-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.95em;
+    }
+    .omni-table th,
+    .omni-table td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    .omni-table th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+    .omni-table tr:hover {
+      background: #fafafa;
+    }
+    canvas { max-width: 100%; }
+    
+  </style>
+</head>
+<body>
+  <h1>Advanced OmniLang Example: E-Commerce Analytics</h1><p>This document demonstrates advanced OmniLang patterns and techniques.</p><h2>Data Loading</h2><div class="omni-data-loaded">✓ Data loaded: orders (8 records)</div><div class="omni-data-loaded">✓ Data loaded: targets (1 records)</div><h2>Executive Dashboard</h2><h3>Overall Performance</h3><div class="omni-compute-result">✓ Computed: overview</div><p><strong>Key Metrics:</strong>
+- 📦 Total Orders: <strong>``<code>omni:inline computed.overview.orderCount</code>`<code></strong>
+- 👥 Unique Customers: <strong></code>`<code>omni:inline computed.overview.uniqueCustomers</code>`<code></strong>
+- 💰 Total Revenue: <strong>$</code>`<code>omni:inline computed.overview.totalRevenue</code>`<code></strong>
+- 📊 Average Order: <strong>$</code>`<code>omni:inline computed.overview.avgOrder</code>`<code></strong>
+- 🎯 Target Achievement: <strong></code>`<code>omni:inline computed.overview.revenueVsTarget</code>`<code>%</strong></p><h2>Category Analysis</h2><p></code>`<code>omni:compute name="byCategory"
+const grouped = groupBy(data.orders, 'category');
+return Object.entries(grouped).map(([category, orders]) => ({
+  category,
+  revenue: sum(orders, 'amount'),
+  count: len(orders),
+  avgOrder: Math.round(avg(orders, 'amount'))
+})).sort((a, b) => b.revenue - a.revenue);
+</code>`<code></p><div class="omni-error">Error in chart fence: Data source &quot;byCategory&quot; not found</div><h3>Category Insights</h3><div class="omni-error">Error in compute fence: Computation error: Cannot read properties of undefined (reading &#039;0&#039;)</div><p>Our best performing category is <strong></code>`<code>omni:inline computed.topCategory.category</code>`<code></strong> with:
+- Revenue: $</code>`<code>omni:inline computed.topCategory.revenue</code>`<code>
+- Orders: </code>`<code>omni:inline computed.topCategory.coun8mputed.topCategory.avgOrder</code>3ute-result">✓ Computed: by3204id="chart-0" width="600" h401r Profile</p><div class="omni-co91.5Customer: ``<code>omni:inline computed.topCustomer.customer</code>`<code>**
+- Lifetime value: $</code>`<code>omni:inline computed.topCustomer.totalSpent</code>`<code>
+- Number of orders: </code>`<code>omni:inline computed.topCustomer.orderCount</code>`<code>
+- Average purchase: $</code>`<code>omni:inline computed.topCustomer.avgOrder</code>`<code>
+- Categories shopped: </code>`<code>omni:inline computed.topCustomer.categories</code>`<code></p><h2>Customer Value Tiers</h2><p></code>`<code>omni:compute name="customerTiers"
+const highValue = filter(computed.byCustomer, c => c.totalSpent >= 500);
+const mediumValue = filter(computed.byCustomer, c => c.totalSpent >= 200 && c.totalSpent[Error: Cannot read properties of undefined (reading 'category')]tomer, c => c.totalSp[Error: Cannot read properties of undefined (reading 'revenue')]  medium: l[Error: Cannot read properties of undefined (reading 'count')]hRevenue: sum(highValue, [Error: Cannot read properties of undefined (reading 'avgOrder')], 'totalSpent'),
+  lowRevenue: sum(lowValue, 'totalSpent')
+};
+</code>`<code></p><p><strong>Customer Distribution:</strong>
+- 🌟 High Value (>$500): </code>`<code>omni:inline computed.customerTiers.high</code>`<code> customers → $</code>`<code>omni:inline computed.customerTiers.highRevenue</code>`<code>
+- ⭐ Medium Value ($200-$500): </code>`<code>omni:inline computed.customerTiers.medium</code>`<code> customers → $</code>`<code>omni:inline computed.customerTiers.mediumRevenue</code>`<code>
+- ✨ Low Value (<$200): </code>`<code>omni:inline computed.customerTiers.low</code>`<code> customers → $</code>`<code>omni:inline computed.customerTiers.lowRevenue</code>`<code></p><h2>Order Size Distribution</h2><p></code>`<code>omni:compute name="orderSizes"
+const ranges = [
+  {label: "$0-100", min: 0, max: 100},
+  Aliceel: "$500+", min: 500,1596
+  label: range.label3>= range.min && o.amou532or">Error in chart fenc3div></p><h2>Detailed Customer Report</h2><div class="omni-compute-result">✓ Computed: customerReport</div><div class="omni-error">Error in compute fence: Computation error: report is not defined</div><h2>Revenue Projections</h2><div class="omni-compute-result">✓ Computed: forecast</div><h3>Growth Forecast</h3><p>Based on 20% customer growth with current purchasing patterns:</p><p>- Current Revenue: $</code>`<code>omni:inline computed.forecast.currentRevenue</code>`<code>
+- Projected Revenue: $</code>`<code>omni:inline computed.forecast.projectedRevenue</code>`<code>
+- Expected Growth: $</code>`<code>omni:inline computed.forecast.growth</code>`<code> (+</code>`<code>omn[Error: Cannot read properties of undefined (reading 'high')]</p><h2>Recommend[Error: Cannot read properties of undefined (reading 'highRevenue')] insights = [];</h2><p>// Check if El[Error: Cannot read properties of undefined (reading 'medium')]omputed.topCat[Error: Cannot read properties of undefined (reading 'mediumRevenue')]
+if (electronicsPct > 50[Error: Cannot read properties of undefined (reading 'low')]${electronicsP[Error: Cannot read properties of undefined (reading 'lowRevenue')]</code>);
+}</p><p>// Check customer concentration
+const topCustomerPct = (computed.topCustomer.totalSpent / computed.overview.totalRevenue) * 100;
+if (topCustomerPct > 30) {
+  insights.push(<code>Top customer represents ${topCustomerPct.toFixed(0)}% of revenue - high concentration risk</code>);
+}</p><p>// Check average order value
+if (computed.overview.avgOrder < data.targets.averageOrder) {
+  insights.push(<code>Average order ($${computed.overview.avgOrder}) below target ($${data.targets.averageOrder}) - consider upselling</code>);
+}</p><p>return insights;
+```</p><div class="omni-error">Error in compute fence: Computation error: recs is not defined</div><hr></p><p><em>Generated with OmniLang Advanced Analytics - Powered by executable markdown</em></p><p><strong>Report Date:</strong> January 14, 2026
+37.7120744113204</p>
+
+  <script>
+    
+    (function() {
+      const ctx = document.getElementById('chart-0');
+      if (!ctx) return;
+
+      new Chart(ctx, {
+        type: 'pie',
+        data: {"labels":["Alice","Carol","Bob"],"datasets":[{"label":"totalSpent","data":[1596,1079,529],"backgroundColor":"rgba(54, 162, 235, 0.5)","borderColor":"rgba(54, 162, 235, 1)","borderWidth":2}]},
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Revenue by Customer',
+            },
+            legend: {
+              display: true,
+            },
+          },
+          
+        }
+      });
+    })();
+    
+  </script>
+</body>
+</html>

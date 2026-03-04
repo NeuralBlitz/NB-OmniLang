@@ -1,0 +1,275 @@
+
+  /**
+   * OmniLang CLI
+   * Command-line tool for processing OmniLang documents
+   */
+
+  const fs = require('fs');
+  const path = require('path');
+  const OmniLang = require('./omni-lang.js');
+
+  const USAGE = `
+  OmniLang CLI v0.1
+
+  Usage:
+    omni build <input.omd> [options]
+    omni watch <input.omd> [options]
+    omni validate <input.omd>
+
+  Commands:
+    build      Process OmniLang document and generate output
+    watch      Watch file for changes and rebuild automatically
+    validate   Check document for syntax errors
+
+  Options:
+    -o, --output <file>    Output file path (default: input.html)
+    -f, --format <format>  Output format: html, json (default: html)
+    -v, --verbose          Show detailed processing information
+    -h, --help             Show this help message
+
+  Examples:
+    omni build report.omd
+    omni build analysis.omd -o output.html
+    omni watch dashboard.omd --verbose
+    omni validate data-viz.omd
+  `;
+
+  class OmniCLI {
+    constructor() {
+      this.args = process.argv.slice(2);
+      this.options = this.parseOptions();
+    }
+
+    parseOptions() {
+      const options = {
+        command: this.args[0],
+        input: this.args[1],
+        output: null,
+        format: 'html',
+        verbose: false
+      };
+
+      for (let i = 2; i < this.args.length; i++) {
+        const arg = this.args[i];
+
+        if (arg === '-o' || arg === '--output') {
+          options.output = this.args[++i];
+        } else if (arg === '-f' || arg === '--format') {
+          options.format = this.args[++i];
+        } else if (arg === '-v' || arg === '--verbose') {
+          options.verbose = true;
+        } else if (arg === '-h' || arg === '--help') {
+          options.command = 'help';
+        }
+      }
+
+      // Default output filename
+      if (!options.output && options.input) {
+        const parsed = path.parse(options.input);
+        options.output = path.join(parsed.dir, `${parsed.name}.html`);
+      }
+
+      return options;
+    }
+
+    async run() {
+      const { command } = this.options;
+
+      switch (command) {
+        case 'build':
+          await this.build();
+          break;
+        case 'watch':
+          await this.watch();
+          break;
+        case 'validate':
+          await this.validate();
+          break;
+        case 'help':
+        default:
+          console.log(USAGE);
+          break;
+      }
+    }
+
+    async build() {
+      const { input, output, verbose } = this.options;
+
+      if (!input) {
+        console.error('Error: No input file specified');
+        console.log(USAGE);
+        process.exit(1);
+      }
+
+      if (!fs.existsSync(input)) {
+        console.error(`Error: Input file not found: ${input}`);
+        process.exit(1);
+      }
+
+      try {
+        if (verbose) console.log(`Reading: ${input}`);
+
+        const content = fs.readFileSync(input, 'utf-8');
+
+        if (verbose) console.log('Parsing OmniLang document...');
+        const omni = new OmniLang();
+        omni.parse(content);
+
+        if (verbose) {
+          console.log(`Found ${omni.fences.length} fence blocks:`);
+          omni.fences.forEach((fence, i) => {
+            console.log(`  ${i + 1}. ${fence.type}${fence.attrs.name ? ` (${fence.attrs.name})` : ''}`);
+          });
+        }
+
+        if (verbose) console.log('Executing fences...');
+        await omni.execute();
+
+        if (verbose) console.log('Rendering output...');
+        const html = omni.toHTML();
+
+        if (verbose) console.log(`Writing: ${output}`);
+        fs.writeFileSync(output, html, 'utf-8');
+
+        console.log(`✓ Successfully built: ${output}`);
+
+        // Show execution summary
+        if (verbose) {
+          console.log('\nExecution Summary:');
+          console.log(`  Data blocks: ${Object.keys(omni.scope.data).length}`);
+          console.log(`  Computed values: ${Object.keys(omni.scope.computed).length}`);
+          console.log(`  Charts: ${omni.scope.charts.length}`);
+
+          const errors = omni.fences.filter(f => f.error);
+          if (errors.length > 0) {
+            console.log(`  Errors: ${errors.length}`);
+            errors.forEach(f => {
+              console.log(`    - ${f.type}: ${f.error}`);
+            });
+          }
+        }
+
+      } catch (error) {
+        console.error('Error building document:', error.message);
+        if (verbose) console.error(error.stack);
+        process.exit(1);
+      }
+    }
+
+    async watch() {
+      const { input, verbose } = this.options;
+
+      if (!input) {
+        console.error('Error: No input file specified');
+        process.exit(1);
+      }
+
+      console.log(`👀 Watching: ${input}`);
+      console.log('Press Ctrl+C to stop\n');
+
+      // Initial build
+      await this.build();
+
+      // Watch for changes
+      fs.watch(input, async (eventType) => {
+        if (eventType === 'change') {
+          console.log(`\n🔄 File changed, rebuilding...`);
+          await this.build();
+        }
+      });
+    }
+
+    async validate() {
+      const { input, verbose } = this.options;
+
+      if (!input) {
+        console.error('Error: No input file specified');
+        process.exit(1);
+      }
+
+      if (!fs.existsSync(input)) {
+        console.error(`Error: Input file not found: ${input}`);
+        process.exit(1);
+      }
+
+      try {
+        const content = fs.readFileSync(input, 'utf-8');
+        const omni = new OmniLang();
+        omni.parse(content);
+
+        console.log(`Validating: ${input}\n`);
+
+        let hasErrors = false;
+
+        // Check each fence
+        omni.fences.forEach((fence, i) => {
+          const issues = this.validateFence(fence);
+
+          if (issues.length > 0) {
+            hasErrors = true;
+            console.log(`Fence ${i + 1} (${fence.type}):`);
+            issues.forEach(issue => console.log(`  ⚠ ${issue}`));
+          } else if (verbose) {
+            console.log(`Fence ${i + 1} (${fence.type}): ✓`);
+          }
+        });
+
+        if (!hasErrors) {
+          console.log(`\n✓ Document is valid`);
+        } else {
+          console.log(`\n✗ Document has validation errors`);
+          process.exit(1);
+        }
+
+      } catch (error) {
+        console.error('Validation error:', error.message);
+        process.exit(1);
+      }
+    }
+
+    validateFence(fence) {
+      const issues = [];
+
+      switch (fence.type) {
+        case 'data':
+          if (!fence.attrs.name) {
+            issues.push('Missing required attribute: name');
+          }
+          try {
+            JSON.parse(fence.content);
+          } catch (e) {
+            issues.push(`Invalid JSON: ${e.message}`);
+          }
+          break;
+
+        case 'chart':
+          if (!fence.attrs.data && !fence.content) {
+            issues.push('Chart requires either data attribute or inline JSON');
+          }
+          if (fence.attrs.type && !['bar', 'line', 'pie', 'doughnut', 'radar'].includes(fence.attrs.type)) {
+            issues.push(`Unknown chart type: ${fence.attrs.type}`);
+          }
+          break;
+
+        case 'compute':
+          // Basic syntax check
+          if (!fence.content.trim()) {
+            issues.push('Empty compute block');
+          }
+          break;
+      }
+
+      return issues;
+    }
+  }
+
+  // Run CLI
+  if (require.main === module) {
+    const cli = new OmniCLI();
+    cli.run().catch(error => {
+      console.error('Fatal error:', error);
+      process.exit(1);
+    });
+  }
+
+  module.exports = OmniCLI;

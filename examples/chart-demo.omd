@@ -1,0 +1,31 @@
+# Chart Visualization Demo
+
+This document demonstrates OmniLang's chart capabilities.
+
+## Bar Chart Example
+
+```omni:data name="sales"
+[
+  {"region": "North", "revenue": 125000},
+  {"region": "South", "revenue": 98000},
+  {"region": "East", "revenue": 156000},
+  {"region": "West", "revenue": 142000}
+]
+```
+
+```omni:chart type="bar" data="sales" x="region" y="revenue" title="Revenue by Region"
+```
+
+## Pie Chart Example
+
+```omni:chart type="pie" data="sales" x="region" y="revenue" title="Market Share"
+```
+
+## Line Chart Example
+
+```omni:chart type="line" data="sales" x="region" y="revenue" title="Revenue Trend"
+```
+
+## Summary
+
+Total revenue across all regions: $```omni:inline sum(data.sales, 'revenue')```

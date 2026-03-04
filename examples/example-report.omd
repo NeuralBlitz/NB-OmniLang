@@ -1,0 +1,241 @@
+# Advanced OmniLang Example: E-Commerce Analytics
+
+This document demonstrates advanced OmniLang patterns and techniques.
+
+## Data Loading
+
+```omni:data name="orders"
+[
+  {"id": 1001, "customer": "Alice", "category": "Electronics", "amount": 1299, "date": "2024-01-15"},
+  {"id": 1002, "customer": "Bob", "category": "Books", "amount": 45, "date": "2024-01-16"},
+  {"id": 1003, "customer": "Alice", "category": "Clothing", "amount": 230, "date": "2024-01-17"},
+  {"id": 1004, "customer": "Carol", "category": "Electronics", "amount": 899, "date": "2024-01-18"},
+  {"id": 1005, "customer": "Bob", "category": "Electronics", "amount": 450, "date": "2024-01-19"},
+  {"id": 1006, "customer": "Alice", "category": "Books", "amount": 67, "date": "2024-01-20"},
+  {"id": 1007, "customer": "Carol", "category": "Clothing", "amount": 180, "date": "2024-01-21"},
+  {"id": 1008, "customer": "Bob", "category": "Books", "amount": 34, "date": "2024-01-22"}
+]
+```
+
+```omni:data name="targets"
+{
+  "totalRevenue": 3500,
+  "averageOrder": 400,
+  "topCategory": "Electronics"
+}
+```
+
+## Executive Dashboard
+
+### Overall Performance
+
+```omni:compute name="overview"
+const totalRevenue = sum(data.orders, 'amount');
+const avgOrder = avg(data.orders, 'amount');
+const orderCount = len(data.orders);
+const uniqueCustomers = new Set(data.orders.map(o => o.customer)).size;
+
+return {
+  totalRevenue,
+  avgOrder: Math.round(avgOrder),
+  orderCount,
+  uniqueCustomers,
+  revenueVsTarget: ((totalRevenue / data.targets.totalRevenue) * 100).toFixed(1)
+};
+```
+
+**Key Metrics:**
+- 📦 Total Orders: **```omni:inline computed.overview.orderCount```**
+- 👥 Unique Customers: **```omni:inline computed.overview.uniqueCustomers```**
+- 💰 Total Revenue: **$```omni:inline computed.overview.totalRevenue```**
+- 📊 Average Order: **$```omni:inline computed.overview.avgOrder```**
+- 🎯 Target Achievement: **```omni:inline computed.overview.revenueVsTarget```%**
+
+## Category Analysis
+
+```omni:compute name="byCategory"
+const grouped = groupBy(data.orders, 'category');
+return Object.entries(grouped).map(([category, orders]) => ({
+  category,
+  revenue: sum(orders, 'amount'),
+  count: len(orders),
+  avgOrder: Math.round(avg(orders, 'amount'))
+})).sort((a, b) => b.revenue - a.revenue);
+```
+
+```omni:chart type="bar" data="byCategory" x="category" y="revenue" title="Revenue by Category"
+```
+
+### Category Insights
+
+```omni:compute name="topCategory"
+return computed.byCategory[0];
+```
+
+Our best performing category is **```omni:inline computed.topCategory.category```** with:
+- Revenue: $```omni:inline computed.topCategory.revenue```
+- Orders: ```omni:inline computed.topCategory.count```
+- Average order value: $```omni:inline computed.topCategory.avgOrder```
+
+## Customer Segmentation
+
+```omni:compute name="byCustomer"
+const grouped = groupBy(data.orders, 'customer');
+return Object.entries(grouped).map(([customer, orders]) => ({
+  customer,
+  totalSpent: sum(orders, 'amount'),
+  orderCount: len(orders),
+  avgOrder: Math.round(avg(orders, 'amount')),
+  categories: [...new Set(orders.map(o => o.category))].length
+})).sort((a, b) => b.totalSpent - a.totalSpent);
+```
+
+```omni:chart type="pie" data="byCustomer" x="customer" y="totalSpent" title="Revenue by Customer"
+```
+
+### Top Customer Profile
+
+```omni:compute name="topCustomer"
+return computed.byCustomer[0];
+```
+
+**Top Customer: ```omni:inline computed.topCustomer.customer```**
+- Lifetime value: $```omni:inline computed.topCustomer.totalSpent```
+- Number of orders: ```omni:inline computed.topCustomer.orderCount```
+- Average purchase: $```omni:inline computed.topCustomer.avgOrder```
+- Categories shopped: ```omni:inline computed.topCustomer.categories```
+
+## Customer Value Tiers
+
+```omni:compute name="customerTiers"
+const highValue = filter(computed.byCustomer, c => c.totalSpent >= 500);
+const mediumValue = filter(computed.byCustomer, c => c.totalSpent >= 200 && c.totalSpent < 500);
+const lowValue = filter(computed.byCustomer, c => c.totalSpent < 200);
+
+return {
+  high: len(highValue),
+  medium: len(mediumValue),
+  low: len(lowValue),
+  highRevenue: sum(highValue, 'totalSpent'),
+  mediumRevenue: sum(mediumValue, 'totalSpent'),
+  lowRevenue: sum(lowValue, 'totalSpent')
+};
+```
+
+**Customer Distribution:**
+- 🌟 High Value (>$500): ```omni:inline computed.customerTiers.high``` customers → $```omni:inline computed.customerTiers.highRevenue```
+- ⭐ Medium Value ($200-$500): ```omni:inline computed.customerTiers.medium``` customers → $```omni:inline computed.customerTiers.mediumRevenue```
+- ✨ Low Value (<$200): ```omni:inline computed.customerTiers.low``` customers → $```omni:inline computed.customerTiers.lowRevenue```
+
+## Order Size Distribution
+
+```omni:compute name="orderSizes"
+const ranges = [
+  {label: "$0-100", min: 0, max: 100},
+  {label: "$100-500", min: 100, max: 500},
+  {label: "$500+", min: 500, max: Infinity}
+];
+
+return ranges.map(range => ({
+  label: range.label,
+  value: len(filter(data.orders, o => o.amount >= range.min && o.amount < range.max))
+}));
+```
+
+```omni:chart type="doughnut" data="orderSizes" title="Orders by Size"
+```
+
+## Detailed Customer Report
+
+```omni:compute name="customerReport"
+return computed.byCustomer.map(c => {
+  const tier = c.totalSpent >= 500 ? 'High' : c.totalSpent >= 200 ? 'Medium' : 'Low';
+  const share = ((c.totalSpent / computed.overview.totalRevenue) * 100).toFixed(1);
+  return {
+    customer: c.customer,
+    spent: `$${c.totalSpent}`,
+    orders: c.orderCount,
+    avg: `$${c.avgOrder}`,
+    tier,
+    share: `${share}%`
+  };
+});
+```
+
+```omni:compute
+const report = computed.customerReport;
+let table = '| Customer | Total Spent | Orders | Avg Order | Tier | Share |\n';
+table += '|----------|-------------|--------|-----------|------|-------|\n';
+report.forEach(r => {
+  table += `| ${r.customer} | ${r.spent} | ${r.orders} | ${r.avg} | ${r.tier} | ${r.share} |\n`;
+});
+return table;
+```
+
+## Revenue Projections
+
+```omni:compute name="forecast"
+const avgOrderValue = computed.overview.avgOrder;
+const ordersPerCustomer = computed.overview.orderCount / computed.overview.uniqueCustomers;
+
+// Assuming 20% customer growth and same order patterns
+const projectedCustomers = Math.ceil(computed.overview.uniqueCustomers * 1.2);
+const projectedOrders = Math.ceil(projectedCustomers * ordersPerCustomer);
+const projectedRevenue = Math.round(projectedOrders * avgOrderValue);
+
+return {
+  currentRevenue: computed.overview.totalRevenue,
+  projectedRevenue,
+  growth: projectedRevenue - computed.overview.totalRevenue,
+  growthPercent: ((projectedRevenue / computed.overview.totalRevenue - 1) * 100).toFixed(1)
+};
+```
+
+### Growth Forecast
+
+Based on 20% customer growth with current purchasing patterns:
+
+- Current Revenue: $```omni:inline computed.forecast.currentRevenue```
+- Projected Revenue: $```omni:inline computed.forecast.projectedRevenue```
+- Expected Growth: $```omni:inline computed.forecast.growth``` (+```omni:inline computed.forecast.growthPercent```%)
+
+## Recommendations
+
+```omni:compute name="recommendations"
+const insights = [];
+
+// Check if Electronics is dominant
+const electronicsPct = (computed.topCategory.revenue / computed.overview.totalRevenue) * 100;
+if (electronicsPct > 50) {
+  insights.push(`Electronics dominates (${electronicsPct.toFixed(0)}%) - consider expanding this category`);
+}
+
+// Check customer concentration
+const topCustomerPct = (computed.topCustomer.totalSpent / computed.overview.totalRevenue) * 100;
+if (topCustomerPct > 30) {
+  insights.push(`Top customer represents ${topCustomerPct.toFixed(0)}% of revenue - high concentration risk`);
+}
+
+// Check average order value
+if (computed.overview.avgOrder < data.targets.averageOrder) {
+  insights.push(`Average order ($${computed.overview.avgOrder}) below target ($${data.targets.averageOrder}) - consider upselling`);
+}
+
+return insights;
+```
+
+```omni:compute
+const recs = computed.recommendations;
+if (len(recs) > 0) {
+  return '**Strategic Recommendations:**\n\n' + 
+         recs.map((r, i) => `${i + 1}. ${r}`).join('\n');
+} else {
+  return '**All metrics look healthy!** ✅';
+}
+```
+
+---
+
+*Generated with OmniLang Advanced Analytics - Powered by executable markdown*
+
+**Report Date:** January 14, 2026

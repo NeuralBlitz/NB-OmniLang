@@ -1,0 +1,425 @@
+# 🌟 OmniLang: Executable Markdown Revolution
+
+**Status:** Working Prototype v0.1  
+**Date:** January 14, 2026  
+**Vision:** Transform Markdown into a computational platform
+
+-----
+
+## 📦 What You Have
+
+A **fully functional prototype** of OmniLang - executable Markdown that combines:
+
+- 📊 Data loading (JSON)
+- 🧮 JavaScript computation
+- 📈 Chart visualizations
+- 🔗 Inline expressions
+- 📄 Static HTML export
+- 🛠️ Command-line tools
+
+## 🚀 Quick Start
+
+```bash
+# Test the system
+node test.js
+
+# Build an example
+node omni-cli.js build chart-demo.omd
+
+# Open the result
+open chart-demo.html
+```
+
+## 📚 Documentation
+
+|File                  |Purpose                      |
+|----------------------|-----------------------------|
+|**README.md**         |Main documentation & features|
+|**GETTING-STARTED.md**|Complete tutorial & examples |
+|**ARCHITECTURE.md**   |Technical design & roadmap   |
+
+## 🎯 Example Documents
+
+|File                    |Description     |Features Demonstrated               |
+|------------------------|----------------|------------------------------------|
+|**chart-demo.omd**      |Simple charts   |Bar, pie, line charts               |
+|**simple-example.omd**  |Basic features  |Data, compute, inline               |
+|**advanced-example.omd**|Complex analysis|Multiple data, grouping, aggregation|
+
+Build any example:
+
+```bash
+node omni-cli.js build [filename].omd
+```
+
+## 🔧 Core Files
+
+|File            |Lines|Purpose                       |
+|----------------|-----|------------------------------|
+|**omni-lang.js**|360  |Core engine, parser, execution|
+|**omni-cli.js** |230  |Command-line interface        |
+|**test.js**     |90   |Test runner                   |
+|**package.json**|30   |NPM configuration             |
+
+## ✨ Example Usage
+
+### Simple Document
+
+```markdown
+# My Report
+
+```omni:data name="sales"
+[{"region": "North", "revenue": 100000}]
+```
+
+Total: $`omni:inline sum(data.sales, 'revenue')`
+
+```omni:chart type="bar" data="sales" x="region" y="revenue"
+
+```
+
+```
+### Build It
+
+```bash
+node omni-cli.js build my-report.omd
+```
+
+### Result
+
+Beautiful HTML with:
+
+- Formatted markdown
+- Computed values inline
+- Interactive charts
+- No dependencies needed!
+
+## 🎨 Syntax Overview
+
+### Data Fences
+
+```markdown
+```omni:data name="myData"
+[{"key": "value"}]
+```
+
+```
+### Compute Fences
+```markdown
+```omni:compute name="result"
+return sum(data.myData, 'field');
+```
+
+```
+### Chart Fences
+```markdown
+```omni:chart type="bar" data="myData" x="key" y="value"
+```
+
+```
+### Inline Expressions
+```markdown
+Value: ```omni:inline computed.result```
+```
+
+## 🛠️ CLI Commands
+
+```bash
+# Build
+node omni-cli.js build input.omd
+node omni-cli.js build input.omd -o output.html
+
+# Watch (auto-rebuild)
+node omni-cli.js watch input.omd --verbose
+
+# Validate
+node omni-cli.js validate input.omd
+```
+
+## 🧪 Built-in Functions
+
+|Function           |Example                                    |
+|-------------------|-------------------------------------------|
+|`len(arr)`         |`len(data.sales)`                          |
+|`sum(arr, key)`    |`sum(data.sales, 'revenue')`               |
+|`avg(arr, key)`    |`avg(data.sales, 'revenue')`               |
+|`max(arr, key)`    |`max(data.sales, 'revenue')`               |
+|`min(arr, key)`    |`min(data.sales, 'revenue')`               |
+|`filter(arr, fn)`  |`filter(data.sales, s => s.revenue > 1000)`|
+|`map(arr, fn)`     |`map(data.sales, s => s.revenue * 1.1)`    |
+|`groupBy(arr, key)`|`groupBy(data.sales, 'region')`            |
+
+## 📈 What’s Working
+
+✅ **Parsing** - Fence detection, attribute extraction  
+✅ **Data** - JSON loading into named variables  
+✅ **Compute** - JavaScript execution with helpers  
+✅ **Charts** - Bar, line, pie, doughnut via Chart.js  
+✅ **Inline** - Expression evaluation in text  
+✅ **Rendering** - Markdown to HTML conversion  
+✅ **CLI** - Build, watch, validate commands  
+✅ **Export** - Standalone HTML files
+
+## 🔮 What’s Next
+
+**Phase 2** (v0.2):
+
+- YAML/TOML/CSV data formats
+- Python code execution
+- SQL queries
+- Table rendering
+- Better dependency tracking
+
+**Phase 3** (v0.3):
+
+- React/Vue components
+- Interactive forms and sliders
+- Real-time data
+- Live reload
+
+**Phase 4** (v1.0):
+
+- VSCode extension
+- Type system
+- Plugin architecture
+- Export to PDF/DOCX
+
+See **ARCHITECTURE.md** for full roadmap.
+
+## 💡 Use Cases
+
+### Business Reports
+
+```markdown
+```omni:data name="q4sales"
+[/* your data */]
+```
+
+Q4 revenue: $`omni:inline sum(data.q4sales, 'revenue')`
+
+```
+### Data Analysis
+```markdown
+```omni:compute name="correlation"
+return calculateCorrelation(data.x, data.y);
+```
+
+```
+### API Docs
+```markdown
+```omni:fetch name="status" url="/api/health"
+Status: ```omni:inline data.status.health```
+```
+
+### Interactive Dashboards
+
+```markdown
+```omni:chart type="line" data="metrics" x="date" y="value"
+```
+
+## 🏗️ Architecture
+
+```
+.omd file
+    ↓
+  Parser (regex)
+    ↓
+  AST (fences)
+    ↓
+  Executor (sequential)
+    ↓
+  Renderer (HTML)
+    ↓
+.html file
+```
+
+**Strengths:**
+
+- Simple, understandable code
+- Easy to extend
+- No dependencies
+- Fast compilation
+
+**Limitations:**
+
+- Sequential execution (no parallel)
+- Limited dependency resolution
+- Basic error handling
+- Simple Markdown conversion
+
+## 🎯 Project Goals
+
+### Immediate (v0.1) ✅
+
+- [x] Working prototype
+- [x] Core features implemented
+- [x] Documentation written
+- [x] Examples provided
+
+### Short-term (Q1 2026)
+
+- [ ] Dependency graph solver
+- [ ] More data formats
+- [ ] Better error messages
+- [ ] Unit tests
+
+### Long-term (2026)
+
+- [ ] Production-ready v1.0
+- [ ] VSCode extension
+- [ ] Community adoption
+- [ ] Plugin ecosystem
+
+## 🤝 Contributing
+
+**Want to help?**
+
+1. **Try it** - Build the examples, create your own
+1. **Break it** - Find bugs, edge cases
+1. **Extend it** - Add features, new fence types
+1. **Document it** - Tutorials, examples, guides
+1. **Share it** - Blog posts, videos, talks
+
+**Priority TODOs:**
+
+- [ ] Topological sort for dependencies
+- [ ] YAML/CSV parsing
+- [ ] Table rendering
+- [ ] Better Markdown parser
+- [ ] Python support (Pyodide)
+
+## 📊 Stats
+
+- **Total Lines:** ~680 (core + CLI)
+- **Fence Types:** 3 (data, compute, chart)
+- **Helper Functions:** 8
+- **Examples:** 4
+- **Chart Types:** 4 (bar, line, pie, doughnut)
+
+## 🎓 Learning Path
+
+**Beginner:**
+
+1. Read **GETTING-STARTED.md**
+1. Build `chart-demo.omd`
+1. Create your first document
+1. Experiment with inline expressions
+
+**Intermediate:**
+
+1. Study `simple-example.omd`
+1. Learn helper functions
+1. Combine multiple data sources
+1. Create complex computations
+
+**Advanced:**
+
+1. Read **ARCHITECTURE.md**
+1. Study `omni-lang.js` source
+1. Add a custom fence type
+1. Contribute features
+
+## 🌟 Why OmniLang?
+
+**Problem:**
+
+- Markdown is static
+- Notebooks are complex
+- Data formats are separate
+- Documents can’t compute
+
+**Solution:**
+
+- Extend Markdown syntax
+- Keep simplicity
+- Add computation power
+- Unify data & docs
+
+**Result:**
+
+- Write once in .omd
+- Get beautiful HTML
+- Include live data
+- Generate visualizations
+- Share standalone files
+
+## 📞 Support
+
+**Got questions?**
+
+- Read the docs (README, GETTING-STARTED, ARCHITECTURE)
+- Check examples (chart-demo, simple-example)
+- Experiment with the code
+- Provide feedback!
+
+## 🎉 What You Can Do NOW
+
+```bash
+# 1. Verify everything works
+node test.js
+
+# 2. Build all examples
+node omni-cli.js build chart-demo.omd
+node omni-cli.js build simple-example.omd
+
+# 3. Create your own
+cat > my-doc.omd << 'EOF'
+# My First OmniLang Doc
+
+```omni:data name="nums"
+[10, 20, 30, 40, 50]
+```
+
+Sum: `omni:inline sum(data.nums)`
+
+```omni:chart type="bar"
+[
+  {"label": "A", "value": 10},
+  {"label": "B", "value": 20},
+  {"label": "C", "value": 30}
+]
+```
+
+EOF
+
+node omni-cli.js build my-doc.omd
+open my-doc.html
+
+```
+## 🚀 Next Steps
+
+1. **Explore** - Try all the examples
+2. **Create** - Build your own documents
+3. **Extend** - Add features you need
+4. **Share** - Show others what's possible
+5. **Contribute** - Help build the future!
+
+---
+
+## 📋 File Checklist
+
+- [x] omni-lang.js - Core engine
+- [x] omni-cli.js - CLI tool
+- [x] test.js - Tests
+- [x] README.md - Main docs
+- [x] GETTING-STARTED.md - Tutorial
+- [x] ARCHITECTURE.md - Design doc
+- [x] chart-demo.omd - Chart examples
+- [x] simple-example.omd - Basic features
+- [x] advanced-example.omd - Complex patterns
+- [x] package.json - NPM config
+- [x] All HTML outputs generated
+
+## ✅ Status: READY TO USE
+
+**You have a working prototype of executable Markdown!**
+
+Start creating living documents today.
+
+---
+
+*OmniLang v0.1 - The Future of Documents*  
+*Built with ❤️ for developers, analysts, and writers*
+
+**Welcome to the revolution!** 🚀
+```
