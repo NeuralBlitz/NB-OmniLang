@@ -127,6 +127,7 @@ program
     const verbose = options.verbose ?? false;
     const output = options.output || input.replace(/\.omd$/, ".html");
     const theme = options.theme;
+    const csp = options.csp ?? false;
 
     if (!fs.existsSync(input)) {
       console.error(`Error: Input file not found: ${input}`);

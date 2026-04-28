@@ -694,3 +694,263 @@ describe("Security features", () => {
     expect(html).not.toContain("Content-Security-Policy");
   });
 });
+
+describe("Background fence", () => {
+  let omni: OmniLang;
+
+  beforeEach(() => {
+    omni = new OmniLang({ strict: false });
+  });
+
+  it("should execute background fence with gradient type", async () => {
+    const markdown = "```omni:background type=\"gradient\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should execute background fence with pattern type", async () => {
+    const markdown = "```omni:background type=\"pattern\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should execute background fence with mesh type", async () => {
+    const markdown = "```omni:background type=\"mesh\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should execute background fence with noise type", async () => {
+    const markdown = "```omni:background type=\"noise\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should execute background fence with solid type", async () => {
+    const markdown = "```omni:background type=\"solid\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should throw on invalid background type", async () => {
+    const markdown = "```omni:background type=\"invalid\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.fences[0].error).toContain("invalid type");
+  });
+
+  it("should store background in scope", async () => {
+    const markdown = "```omni:background name=\"my-bg\" type=\"gradient\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed["my-bg"]).toBeDefined();
+    expect(omni.scope.computed["my-bg"].type).toBe("gradient");
+  });
+
+  it("should render background in HTML", async () => {
+    const markdown = "```omni:background type=\"gradient\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    const html = omni.toHtml();
+    expect(html).toContain("background:");
+  });
+});
+
+describe("Audio fence", () => {
+  let omni: OmniLang;
+
+  beforeEach(() => {
+    omni = new OmniLang({ strict: false });
+  });
+
+  it("should execute audio fence with src", async () => {
+    const markdown = "```omni:audio src=\"https://example.com/music.mp3\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should store audio in scope", async () => {
+    const markdown = "```omni:audio name=\"bgm\" src=\"https://example.com/music.mp3\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.bgm).toBeDefined();
+    expect(omni.scope.computed.bgm.source).toBe("https://example.com/music.mp3");
+  });
+
+  it("should handle autoplay attribute", async () => {
+    const markdown = "```omni:audio name=\"bgm\" src=\"https://example.com/music.mp3\" autoplay=\"true\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.bgm?.autoplay).toBe(true);
+  });
+
+  it("should handle loop attribute", async () => {
+    const markdown = "```omni:audio name=\"bgm\" src=\"https://example.com/music.mp3\" loop=\"true\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.bgm?.loop).toBe(true);
+  });
+
+  it("should handle volume attribute", async () => {
+    const markdown = "```omni:audio name=\"bgm\" src=\"https://example.com/music.mp3\" volume=\"0.5\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.bgm?.volume).toBe(0.5);
+  });
+
+  it("should throw on missing src", async () => {
+    const markdown = "```omni:audio\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.fences[0].error).toContain("src");
+  });
+
+  it("should throw on invalid format", async () => {
+    const markdown = "```omni:audio src=\"https://example.com/music.xyz\" format=\"xyz\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.fences[0].error).toContain("invalid format");
+  });
+
+  it("should render audio player in HTML", async () => {
+    const markdown = "```omni:audio src=\"https://example.com/music.mp3\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    const html = omni.toHtml();
+    expect(html).toContain("<audio");
+    expect(html).toContain("src=\"https://example.com/music.mp3\"");
+  });
+});
+
+describe("Video fence", () => {
+  let omni: OmniLang;
+
+  beforeEach(() => {
+    omni = new OmniLang({ strict: false });
+  });
+
+  it("should execute video fence with src", async () => {
+    const markdown = "```omni:video src=\"https://example.com/video.mp4\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should store video in scope", async () => {
+    const markdown = "```omni:video name=\"bgv\" src=\"https://example.com/video.mp4\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.bgv).toBeDefined();
+    expect(omni.scope.computed.bgv.source).toBe("https://example.com/video.mp4");
+  });
+
+  it("should handle video attributes", async () => {
+    const markdown = "```omni:video name=\"vid\" src=\"https://example.com/video.mp4\" autoplay=\"true\" muted=\"true\" loop=\"true\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.vid?.autoplay).toBe(true);
+    expect(omni.scope.computed.vid?.muted).toBe(true);
+    expect(omni.scope.computed.vid?.loop).toBe(true);
+  });
+
+  it("should throw on missing src", async () => {
+    const markdown = "```omni:video\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.fences[0].error).toContain("src");
+  });
+
+  it("should render video player in HTML", async () => {
+    const markdown = "```omni:video src=\"https://example.com/video.mp4\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    const html = omni.toHtml();
+    expect(html).toContain("<video");
+    expect(html).toContain("src=\"https://example.com/video.mp4\"");
+  });
+});
+
+describe("Image fence", () => {
+  let omni: OmniLang;
+
+  beforeEach(() => {
+    omni = new OmniLang({ strict: false });
+  });
+
+  it("should execute image fence with src", async () => {
+    const markdown = "```omni:image src=\"https://example.com/photo.png\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should handle image attributes", async () => {
+    const markdown = "```omni:image name=\"pic\" src=\"https://example.com/photo.png\" width=\"400\" alt=\"test photo\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.pic?.source).toBe("https://example.com/photo.png");
+    expect(omni.scope.computed.pic?.width).toBe(400);
+    expect(omni.scope.computed.pic?.alt).toBe("test photo");
+  });
+
+  it("should throw on missing src", async () => {
+    const markdown = "```omni:image\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.fences[0].error).toContain("src");
+  });
+
+  it("should render image in HTML", async () => {
+    const markdown = "```omni:image src=\"https://example.com/photo.png\" alt=\"test\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    const html = omni.toHtml();
+    expect(html).toContain("<img");
+    expect(html).toContain("src=\"https://example.com/photo.png\"");
+  });
+});
+
+describe("Animation fence", () => {
+  let omni: OmniLang;
+
+  beforeEach(() => {
+    omni = new OmniLang({ strict: false });
+  });
+
+  it("should execute animation fence", async () => {
+    const markdown = "```omni:animation duration=\"500\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.getFences()[0].executed).toBe(true);
+  });
+
+  it("should handle animation attributes", async () => {
+    const markdown = "```omni:animation name=\"fade\" duration=\"500\" easing=\"ease-in-out\" delay=\"100\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.scope.computed.fade?.duration).toBe(500);
+    expect(omni.scope.computed.fade?.easing).toBe("ease-in-out");
+    expect(omni.scope.computed.fade?.delay).toBe(100);
+  });
+
+  it("should throw on invalid easing", async () => {
+    const markdown = "```omni:animation easing=\"invalid-thing\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    expect(omni.fences[0].error).toContain("invalid easing");
+  });
+
+  it("should render animation styles in HTML", async () => {
+    const markdown = "```omni:animation name=\"fade\" duration=\"500\"\n```";
+    omni.parse(markdown);
+    await omni.execute();
+    const html = omni.toHtml();
+    expect(html).toContain("@keyframes");
+  });
+});

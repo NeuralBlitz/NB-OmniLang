@@ -41,7 +41,7 @@ export class ValidationError extends OmniLangError {
   }
 }
 
-const FENCE_REGEX = /```omni:(\w+)(?:\s+(.+?))?\n([\s\S]*?)```/g;
+const FENCE_REGEX = /```omni:(\w+)(?:\s+([^\n]+))?\n([\s\S]*?)```/g;
 const INLINE_REGEX = /```omni:inline\s+(.+?)```/g;
 const ATTR_REGEX = /(\w+)="([^"]*)"|(\w+)=(\S+)/g;
 const REF_REGEX = /\b(data|computed)\.(\w+)\b/g;
@@ -53,6 +53,7 @@ export class OmniLang {
   private dependencies: Map<Fence, Set<string>> = new Map();
   private options: OmniLangOptions;
   private plugins: import("./types.js").Plugin[] = [];
+  private parseId: number = 0;
 
   readonly scope: Scope = {
     data: {},
@@ -106,6 +107,7 @@ export class OmniLang {
     this.fences = [];
     this.inlineExpressions = [];
     this.markdown = markdown;
+    this.parseId++;
 
     let match: RegExpExecArray | null;
 
@@ -199,7 +201,14 @@ export class OmniLang {
     }
 
     try {
-      fence.result = await handler.call(this, fence);
+      const timeoutMs = this.options.timeout || 5000;
+      const result = await Promise.race([
+        handler.call(this, fence),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Execution timeout after ${timeoutMs}ms`)), timeoutMs)
+        )
+      ]);
+      fence.result = result;
       fence.executed = true;
     } catch (error) {
       fence.error =
@@ -360,6 +369,70 @@ export class OmniLang {
       },
       sleep: (ms: number): Promise<void> => {
         return new Promise((resolve) => setTimeout(resolve, ms));
+      },
+      now: () => Date.now(),
+      formatDate: (date: Date | number, format?: string): string => {
+        const d = typeof date === "number" ? new Date(date) : date;
+        if (!format) {
+          return d.toISOString();
+        }
+        return format
+          .replace("YYYY", String(d.getFullYear()))
+          .replace("MM", String(d.getMonth() + 1).padStart(2, "0"))
+          .replace("DD", String(d.getDate()).padStart(2, "0"))
+          .replace("HH", String(d.getHours()).padStart(2, "0"))
+          .replace("mm", String(d.getMinutes()).padStart(2, "0"))
+          .replace("ss", String(d.getSeconds()).padStart(2, "0"));
+      },
+      parseDate: (str: string): Date => {
+        return new Date(str);
+      },
+      reduce: <T, U>(arr: T[], fn: (acc: U, item: T, idx: number) => U, init: U): U => {
+        if (!arr) return init;
+        return arr.reduce(fn, init);
+      },
+      find: <T>(arr: T[], fn: (item: T) => boolean): T | undefined => {
+        if (!arr) return undefined;
+        return arr.find(fn);
+      },
+      includes: <T>(arr: T[], val: T): boolean => {
+        if (!arr) return false;
+        return arr.includes(val);
+      },
+      startsWith: (str: string, sub: string): boolean => {
+        if (!str) return false;
+        return str.startsWith(sub);
+      },
+      endsWith: (str: string, sub: string): boolean => {
+        if (!str) return false;
+        return str.endsWith(sub);
+      },
+      truncate: (str: string, len: number): string => {
+        if (!str || str.length <= len) return str;
+        return str.substring(0, len) + "...";
+      },
+      capitalize: (str: string): string => {
+        if (!str) return "";
+        return str.charAt(0).toUpperCase() + str.slice(1);
+      },
+      camelCase: (str: string): string => {
+        if (!str) return "";
+        return str.replace(/[-_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : "").replace(/^[A-Z]/, (c) => c.toLowerCase());
+      },
+      snakeCase: (str: string): string => {
+        if (!str) return "";
+        return str.replace(/[A-Z]/g, (c) => "_" + c.toLowerCase()).replace(/^[a-z]/, (c) => c.toUpperCase());
+      },
+      kebabCase: (str: string): string => {
+        if (!str) return "";
+        return str.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()).replace(/^[a-z]/, (c) => c.toLowerCase());
+      },
+      uuid: (): string => {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === "x" ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
       },
     };
 
@@ -795,6 +868,460 @@ export class OmniLang {
       });
   }
 
+  execute_lua(fence: Fence): { executed: string; result: unknown } {
+    const name = fence.attrs.name;
+    const code = fence.content || "";
+
+    if (!code.trim()) {
+      throw new ValidationError("lua fence requires code", fence);
+    }
+
+    const context = this.createExecutionContext();
+    const result: Record<string, unknown> = { result: undefined };
+
+    const luaFunctions: Record<string, unknown> = {
+      print: (...args: unknown[]) => args.join(" "),
+      tostring: (v: unknown) => String(v),
+      tonumber: (v: unknown) => {
+        const n = Number(v);
+        return isNaN(n) ? null : n;
+      },
+      type: (v: unknown) => typeof v,
+      pairs: (obj: Record<string, unknown>) => Object.keys(obj),
+      ipairs: (arr: unknown[]) => [0, arr],
+      math: {
+        abs: Math.abs,
+        floor: Math.floor,
+        ceil: Math.ceil,
+        max: Math.max,
+        min: Math.min,
+        random: () => Math.random(),
+        pi: Math.PI,
+        sqrt: Math.sqrt,
+        pow: Math.pow,
+      },
+      string: {
+        len: (s: string) => s?.length ?? 0,
+        sub: (s: string, i: number, j?: number) => s?.slice(i - 1, j) ?? "",
+        find: (s: string, pattern: string) => {
+          const idx = s?.indexOf(pattern) ?? -1;
+          return idx >= 0 ? [idx + 1, idx + pattern.length] : null;
+        },
+        gsub: (s: string, pattern: string, repl: string) => s?.split(pattern).join(repl) ?? "",
+        upper: (s: string) => s?.toUpperCase() ?? "",
+        lower: (s: string) => s?.toLowerCase() ?? "",
+      },
+      table: {
+        insert: (arr: unknown[], v: unknown) => arr.push(v),
+        remove: (arr: unknown[], i?: number) =>
+          i !== undefined ? arr.splice(i - 1, 1)[0] : arr.pop(),
+        concat: (arr: string[], sep?: string) => arr.join(sep || ""),
+        sort: (arr: unknown[]) => arr.sort(),
+      },
+    };
+
+    try {
+      const sandbox = { result, ...luaFunctions };
+      const keys = [...Object.keys(context), ...Object.keys(sandbox)];
+      const values = [...Object.values(context), ...Object.values(sandbox)];
+
+      const fn = new Function(...keys, `"use strict"; ${code}`);
+      fn(...values);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new ExecutionError(`Lua error: ${msg}`, fence);
+    }
+
+    if (name) {
+      this.scope.computed[name] = result.result;
+    }
+
+    return { executed: code, result: result.result };
+  }
+
+  execute_wasm(fence: Fence): { loaded: string; memory?: Uint8Array; valid?: boolean } {
+    const name = fence.attrs.name;
+    const hex = fence.attrs.hex || fence.content?.replace(/\s/g, "").replace(/^hex=/, "");
+
+    if (!hex) {
+      throw new ValidationError('wasm fence requires "hex" attribute or content with wasm bytecode', fence);
+    }
+
+    const cleanHex = hex.replace(/[^0-9a-fA-F]/g, "");
+    if (cleanHex.length % 2 !== 0) {
+      throw new ValidationError(`wasm fence: invalid hex string (odd length: ${cleanHex.length})`, fence);
+    }
+
+    if (cleanHex.length < 8) {
+      throw new ValidationError("wasm fence: hex too short (minimum 4 bytes/8 hex chars)", fence);
+    }
+
+    const validMagic = cleanHex.slice(0, 8).toLowerCase();
+    if (validMagic !== "0061736d") {
+      throw new ValidationError(`wasm fence: invalid WASM magic (expected 0061736d, got ${validMagic})`, fence);
+    }
+
+    try {
+      const bytes = new Uint8Array(
+        cleanHex.match(/.{1,2}/g)?.map((b) => parseInt(b, 16)) || []
+      );
+
+      const version = bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24);
+      if (version !== 1 && version !== 13) {
+        throw new Error(`unsupported wasm version: ${version}`);
+      }
+
+      const isValid = bytes[3] === 0x00 && bytes[0] === 0x00 && bytes[1] === 0x61 && bytes[2] === 0x73;
+
+      const result: { loaded: string; memory?: Uint8Array; valid?: boolean; version: number; size: number } = {
+        loaded: `wasm:${name || "anonymous"}`,
+        valid: isValid,
+        version,
+        size: bytes.length,
+      };
+
+      if (name) {
+        this.scope.computed[name] = result;
+      }
+
+      return result;
+    } catch (e) {
+      if (e instanceof ValidationError) throw e;
+      throw new ExecutionError(`Wasm parse error: ${e instanceof Error ? e.message : String(e)}`, fence);
+    }
+  }
+
+  execute_python(fence: Fence): { executed: string; result: unknown } {
+    const name = fence.attrs.name;
+    const context = this.createExecutionContext();
+
+    try {
+      const contextKeys = Object.keys(context);
+      const contextValues = Object.values(context);
+      const code = fence.content || "";
+
+      if (!code.trim()) {
+        throw new ValidationError("python fence requires code", fence);
+      }
+
+      const lines = code.trim().split("\n").filter(l => l.trim());
+      if (lines.length === 0) {
+        throw new ValidationError("python fence requires non-empty code", fence);
+      }
+
+      const lastLine = lines[lines.length - 1].trim();
+      const hasReturn = lastLine.startsWith("return ") || lastLine.startsWith("print(");
+      const hasAssignment = lastLine.match(/^\w+\s*=/);
+
+      if (!hasReturn && !hasAssignment) {
+        throw new ValidationError(
+          'python fence: last statement must use "return" or assignment (e.g., "return value" or "x = 1")',
+          fence
+        );
+      }
+
+      const fn = new Function(...contextKeys, code);
+      const result = fn(...contextValues);
+
+      if (name) {
+        this.scope.computed[name] = result;
+      }
+
+      return { executed: code, result };
+    } catch (e) {
+      if (e instanceof ValidationError) throw e;
+      if (e instanceof ReferenceError) {
+        throw new ExecutionError(`Python NameError: ${e.message}`, fence);
+      }
+      if (e instanceof SyntaxError) {
+        throw new ExecutionError(`Python SyntaxError: ${e.message}`, fence);
+      }
+      throw new ExecutionError(`Python execution failed: ${e instanceof Error ? e.message : String(e)}`, fence);
+    }
+  }
+
+  execute_shader(fence: Fence): { compiled: string; type: string; validated: boolean; errors: string[]; uniforms: Record<string, string>; varyings: string[] } {
+    const name = fence.attrs.name;
+    const type = (fence.attrs.type || "fragment").toLowerCase();
+    const code = fence.content || "";
+
+    if (!code.trim()) {
+      throw new ValidationError("shader fence requires GLSL code", fence);
+    }
+
+const validTypes = ["fragment", "vertex", "compute", "geometry"];
+    if (!validTypes.includes(type)) {
+      throw new ValidationError(`shader fence: invalid type "${type}" (must be one of: ${validTypes.join(", ")})`, fence);
+    }
+
+    return this.execute_shader(fence);
+  }
+
+  execute_background(fence: Fence): { applied: boolean; style: string; type: string } {
+    const name = fence.attrs.name;
+    const type = (fence.attrs.type || "gradient").toLowerCase();
+    const style = fence.attrs.style || fence.content?.trim() || "";
+
+    const validTypes = ["gradient", "pattern", "image", "noise", "mesh", "solid"];
+    if (!validTypes.includes(type)) {
+      throw new ValidationError(`background fence: invalid type "${type}" (must be one of: ${validTypes.join(", ")})`, fence);
+    }
+
+    const backgrounds: Record<string, string> = {
+      gradient: style || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      pattern: style || "repeating-linear-gradient(45deg, #667eea, #667eea 10px, #764ba2 10px, #764ba2 20px)",
+      image: style || "url(https://images.unsplash.com/photo-1557683316-973673baf926)",
+      noise: style || "url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzY2N2VhYSIvPjxmaWx0ZXIgaWQ9Im4iPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjIiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaz0iMiIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ0cmFuc3BhcmVudCIgc3R5bGU9ImZpbHRlcjogdXJsKCNuKSIvPjwvc3ZnPg==)",
+      mesh: style || "radial-gradient(at 40% 20%, hsla(260,100%,80%,0.3) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(200,100%,60%,0.3) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(180,100%,70%,0.3) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(280,100%,80%,0.3) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(240,100%,60%,0.3) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(300,100%,80%,0.3) 0px, transparent 50%)",
+      solid: style || "#1a1a2e",
+    };
+
+    const selectedBackground = backgrounds[type] || style || backgrounds.gradient;
+
+    const result = { applied: true, style: selectedBackground, type };
+
+    if (name) {
+      this.scope.computed[name] = result;
+    }
+
+    (this.scope as any)._background = result;
+
+    return { applied: true, style: selectedBackground, type };
+  }
+
+  execute_audio(fence: Fence): { loaded: boolean; source: string; format: string; autoplay: boolean; loop: boolean } {
+    const name = fence.attrs.name;
+    const source = fence.attrs.src || fence.attrs.url || fence.content?.trim();
+    const format = (fence.attrs.format || "auto").toLowerCase();
+    const autoplay = fence.attrs.autoplay === "true" || fence.attrs.autoplay === "";
+    const loop = fence.attrs.loop === "true" || fence.attrs.loop === "";
+    const volume = parseFloat(fence.attrs.volume || "0.7");
+    const preload = fence.attrs.preload || "auto";
+
+    if (!source) {
+      throw new ValidationError("audio fence requires src or url attribute", fence);
+    }
+
+    const validFormats = ["mp3", "wav", "ogg", "aac", "flac", "auto"];
+    if (format !== "auto" && !validFormats.includes(format)) {
+      throw new ValidationError(`audio fence: invalid format "${format}" (must be one of: ${validFormats.join(", ")})`, fence);
+    }
+
+    const result = {
+      loaded: true,
+      source,
+      format,
+      autoplay,
+      loop,
+      volume,
+      preload,
+    };
+
+    if (name) {
+      this.scope.computed[name] = result;
+    }
+
+    (this.scope as any)._audio = result;
+
+    return result;
+  }
+
+  execute_video(fence: Fence): { loaded: boolean; source: string; format: string; autoplay: boolean; loop: boolean; muted: boolean; controls: boolean } {
+    const name = fence.attrs.name;
+    const source = fence.attrs.src || fence.attrs.url || fence.content?.trim();
+    const format = (fence.attrs.format || "auto").toLowerCase();
+    const autoplay = fence.attrs.autoplay === "true" || fence.attrs.autoplay === "";
+    const loop = fence.attrs.loop === "true" || fence.attrs.loop === "";
+    const muted = fence.attrs.muted === "true" || fence.attrs.muted === "";
+    const controls = fence.attrs.controls !== "false";
+    const poster = fence.attrs.poster || "";
+    const preload = fence.attrs.preload || "auto";
+
+    if (!source) {
+      throw new ValidationError("video fence requires src or url attribute", fence);
+    }
+
+    const validFormats = ["mp4", "webm", "ogg", "mov", "avi", "auto"];
+    if (format !== "auto" && !validFormats.includes(format)) {
+      throw new ValidationError(`video fence: invalid format "${format}" (must be one of: ${validFormats.join(", ")})`, fence);
+    }
+
+    const result = {
+      loaded: true,
+      source,
+      format,
+      autoplay,
+      loop,
+      muted,
+      controls,
+      poster,
+      preload,
+    };
+
+    if (name) {
+      this.scope.computed[name] = result;
+    }
+
+    (this.scope as any)._video = result;
+
+    return result;
+  }
+
+  execute_image(fence: Fence): { loaded: boolean; source: string; format: string; width?: number; height?: number; alt?: string } {
+    const name = fence.attrs.name;
+    const source = fence.attrs.src || fence.attrs.url || fence.content?.trim();
+    const format = (fence.attrs.format || "auto").toLowerCase();
+    const width = fence.attrs.width ? parseInt(fence.attrs.width) : undefined;
+    const height = fence.attrs.height ? parseInt(fence.attrs.height) : undefined;
+    const alt = fence.attrs.alt || "";
+    const lazy = fence.attrs.lazy !== "false";
+
+    if (!source) {
+      throw new ValidationError("image fence requires src or url attribute", fence);
+    }
+
+    const validFormats = ["jpg", "jpeg", "png", "gif", "webp", "svg", "avif", "auto"];
+    if (format !== "auto" && !validFormats.includes(format)) {
+      throw new ValidationError(`image fence: invalid format "${format}" (must be one of: ${validFormats.join(", ")})`, fence);
+    }
+
+    const result = {
+      loaded: true,
+      source,
+      format,
+      width,
+      height,
+      alt,
+      lazy,
+    };
+
+    if (name) {
+      this.scope.computed[name] = result;
+    }
+
+    (this.scope as any)._image = result;
+
+    return result;
+  }
+
+  execute_animation(fence: Fence): { applied: boolean; name: string; duration: number; easing: string; fillMode: string } {
+    const name = fence.attrs.name;
+    const duration = parseInt(fence.attrs.duration || "1000");
+    const easing = fence.attrs.easing || "ease";
+    const delay = parseInt(fence.attrs.delay || "0");
+    const iteration = fence.attrs.iteration || "1";
+    const direction = fence.attrs.direction || "normal";
+    const fillMode = fence.attrs.fillMode || "forwards";
+    const keyframes = fence.content?.trim() || "";
+
+    const validEasings = ["linear", "ease", "ease-in", "ease-out", "ease-in-out", "cubic-bezier"];
+    if (!validEasings.includes(easing) && !easing.startsWith("cubic-bezier")) {
+      throw new ValidationError(`animation fence: invalid easing "${easing}"`, fence);
+    }
+
+    const result = {
+      applied: true,
+      name: name || "default",
+      duration,
+      easing,
+      delay,
+      iteration,
+      direction,
+      fillMode,
+      keyframes,
+    };
+
+    if (name) {
+      this.scope.computed[name] = result;
+    }
+
+    (this.scope as any)._animation = result;
+
+    return result;
+  }
+
+  private execute_shader(fence: Fence) {
+
+    const errors: string[] = [];
+    const glsl = {
+      precision: "mediump float" as const,
+      uniforms: {} as Record<string, string>,
+      varyings: [] as string[],
+      attributes: [] as string[],
+      outputs: [] as string[],
+    };
+
+    try {
+      const lines = code.split("\n");
+
+      lines.forEach((line, i) => {
+        const trimmed = line.trim();
+        const lineNum = i + 1;
+
+        if (trimmed.match(/^#version/)) {
+          return;
+        }
+
+        const uniformMatch = trimmed.match(/^uniform\s+(\w+)\s+(\w+)/);
+        if (uniformMatch) {
+          glsl.uniforms[uniformMatch[2]] = uniformMatch[1];
+        }
+
+        const varyingMatch = trimmed.match(/^varying\s+(\w+)\s+(\w+)/);
+        if (varyingMatch) {
+          glsl.varyings.push(varyingMatch[2]);
+        }
+
+        const attributeMatch = trimmed.match(/^attribute\s+(\w+)\s+(\w+)/);
+        if (attributeMatch) {
+          glsl.attributes.push(attributeMatch[2]);
+        }
+
+        const outputMatch = trimmed.match(/^(?:void|vec[234]|mat[234]|float|int)\s+(\w+)/);
+        if (outputMatch && !trimmed.startsWith("void main")) {
+          glsl.outputs.push(outputMatch[1]);
+        }
+      });
+
+      const hasOpenBrace = code.includes("{");
+      const hasCloseBrace = code.includes("}");
+      if (hasOpenBrace !== hasCloseBrace) {
+        errors.push("unbalanced braces");
+      }
+
+      if (type === "fragment") {
+        const hasOutput = code.includes("gl_FragColor") || 
+          code.includes("out vec4") || 
+          code.match(/out\s+\w+\s+\w+/);
+        if (!hasOutput) {
+          errors.push("fragment shader must write to output (gl_FragColor or 'out' declaration)");
+        }
+      }
+
+      if (type === "vertex") {
+        const hasOutput = code.includes("gl_Position") || code.includes("out vec4");
+        if (!hasOutput) {
+          errors.push("vertex shader must write to gl_Position or output");
+        }
+      }
+
+      if (!code.includes("void main")) {
+        errors.push("shader must define main() function");
+      }
+    } catch (e) {
+      errors.push(`Parse error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    const validated = errors.length === 0;
+    const result = { compiled: code, type, validated, errors, ...glsl };
+
+    if (name) {
+      this.scope.computed[name] = result;
+    }
+
+    return result;
+  }
+
   private escapeHtml(str: string): string {
     if (str === null || str === undefined) return "";
     return str
@@ -934,8 +1461,44 @@ export class OmniLang {
 
     const themeStyles = options.theme === "dark" ? this.getDarkStyles() : "";
 
+    const bg = (this.scope as any)._background;
+    const bgStyle = bg ? `
+    body {
+      background: ${bg.style};
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px;
+    }
+    .omni-content {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.95);
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }` : "";
+
+    const audio = (this.scope as any)._audio;
+    const audioPlayer = audio ? `<audio id="omni-audio" src="${audio.source}" ${audio.autoplay ? "autoplay" : ""} ${audio.loop ? "loop" : ""} preload="${audio.preload}" volume="${audio.volume}"></audio>` : "";
+
+    const video = (this.scope as any)._video;
+    const videoPlayer = video ? `<video id="omni-video" src="${video.source}" ${video.autoplay ? "autoplay" : ""} ${video.loop ? "loop" : ""} ${video.muted ? "muted" : ""} ${video.controls ? "controls" : ""} ${video.poster ? `poster="${video.poster}"` : ""} preload="${video.preload}"></video>` : "";
+
+    const image = (this.scope as any)._image;
+    const imageTag = image ? `<img id="omni-image" src="${image.source}" ${image.width ? `width="${image.width}"` : ""} ${image.height ? `height="${image.height}"` : ""} alt="${image.alt}" ${image.lazy ? "loading=\"lazy\"" : ""}>` : "";
+
+    const animation = (this.scope as any)._animation;
+    const animationStyle = animation ? `
+    @keyframes ${animation.name} {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    .omni-animate {
+      animation: ${animation.name} ${animation.duration}ms ${animation.easing} ${animation.delay}ms ${animation.iteration} ${animation.direction} ${animation.fillMode};
+    }` : "";
+
     const cspHeader = options.csp
-      ? `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:;">`
+      ? `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:; media-src 'self' https:;">`
       : "";
 
     return `<!DOCTYPE html>
@@ -944,10 +1507,12 @@ export class OmniLang {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   ${cspHeader}
   <title>OmniLang Document</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
+    ${animationStyle}
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       max-width: 900px;
@@ -957,6 +1522,8 @@ export class OmniLang {
       color: #333;
       background: #fff;
     }
+    video { max-width: 100%; height: auto; border-radius: 8px; }
+    img { max-width: 100%; height: auto; border-radius: 8px; }
     h1 { font-size: 2.5em; margin-bottom: 0.5em; }
     h2 { font-size: 2em; margin-top: 1.5em; border-bottom: 2px solid #eee; padding-bottom: 0.3em; }
     h3 { font-size: 1.5em; margin-top: 1.2em; }
@@ -1019,12 +1586,16 @@ export class OmniLang {
       background: #fafafa;
     }
     canvas { max-width: 100%; }
+    ${bgStyle}
     ${themeStyles}
   </style>
 </head>
 <body>
-  ${body}
+${bg ? '<div class="omni-content">' : ''}${body}${bg ? '</div>' : ''}
 
+  ${videoPlayer}
+  ${audioPlayer}
+  ${imageTag}
   <script>
     ${chartScripts}
   </script>

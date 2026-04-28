@@ -1,5 +1,12 @@
 import type { NLPResult, NLPIntent, NLPEntity } from "./types.js";
 
+const MULTI_STEP_PATTERNS = [
+  { pattern: /\b(first|then|next|after\s+that|afterwards)\b/i, separator: "then" },
+  { pattern: /\b(and\s+also|plus|additionally)\b/i, separator: "and" },
+  { pattern: /\b(but\s+also|however|also)\b/i, separator: "but" },
+  { pattern: /\b(\d+\.\s+|\ba\.\s+|\bstep\s+\d+)\b/i, separator: "ordered" },
+];
+
 const INTENT_PATTERNS: Array<{ pattern: RegExp; name: string; priority: number }> = [
   { pattern: /^(create|make|generate|add)\s+(a\s+)?(data|chart|table|query)/i, name: "create_data", priority: 10 },
   { pattern: /^(show|display|render)\s+(me\s+)?(the\s+)?(data|chart|table|graph)/i, name: "display", priority: 9 },
@@ -34,9 +41,13 @@ const ENTITY_PATTERNS: Array<{ pattern: RegExp; type: string; priority: number }
 export class NLPEngine {
   private customIntents: Map<string, RegExp> = new Map();
   private customEntities: Map<string, RegExp> = new Map();
+  private dslPatterns: Map<string, RegExp> = new Map();
+  private contextHistory: NLPResult[] = [];
+  private userCorrections: Map<string, string> = new Map();
 
   constructor() {
     this.registerBuiltInPatterns();
+    this.registerDSLPatterns();
   }
 
   private registerBuiltInPatterns(): void {}
@@ -49,7 +60,24 @@ export class NLPEngine {
     this.customEntities.set(type, pattern);
   }
 
+  registerDSL(name: string, pattern: RegExp): void {
+    this.dslPatterns.set(name, pattern);
+  }
+
+  registerDSLPatterns(): void {
+    this.dslPatterns.set("chart", /\b(bar|line|pie|scatter|doughnut|radar)\b/i);
+    this.dslPatterns.set("format", /\b(json|yaml|csv|xml|toml)\b/i);
+    this.dslPatterns.set("operation", /\b(sum|average|count|min|max|filter|sort)\b/i);
+    this.dslPatterns.set("fence", /\b(omni:\w+)\b/i);
+  }
+
   process(input: string): NLPResult {
+    const isMultiStep = this.detectMultiStep(input);
+    
+    if (isMultiStep.steps.length > 1) {
+      return this.processMultiStep(input, isMultiStep);
+    }
+
     const intents = this.extractIntents(input);
     const entities = this.extractEntities(input);
 
@@ -389,6 +417,76 @@ return data.items;
     }
 
     return specs;
+  }
+
+  private detectMultiStep(input: string): { steps: string[]; separator: string } {
+    const separators = [
+      { pattern: /\s+then\s+/i, separator: "then" },
+      { pattern: /\s+and\s+then\s+/i, separator: "then" },
+      { pattern: /\s+after\s+that\s+/i, separator: "then" },
+      { pattern: /(?:^|\n)\s*\d+\.\s+/gm, separator: "ordered" },
+    ];
+
+    for (const { pattern, separator } of separators) {
+      if (pattern.test(input)) {
+        const parts = input.split(pattern).filter(s => s.trim());
+        return { steps: parts, separator };
+      }
+    }
+
+    return { steps: [input], separator: "none" };
+  }
+
+  private processMultiStep(input: string, multiStep: { steps: string[]; separator: string }): NLPResult {
+    const stepResults = multiStep.steps.map(step => this.process(step.trim()));
+    
+    const intents: NLPIntent[] = [{
+      name: "multi_step",
+      confidence: 1.0,
+      entities: {},
+      raw: input,
+    }];
+
+    const codeFences = stepResults
+      .map((r, i) => r.code ? `\n\`\`\`omni:compute name="step${i}"\n${r.code}\n\`\`\`` : "")
+      .join("\n");
+
+    const result: NLPResult = {
+      intents,
+      entities: [],
+      action: "MULTI_STEP",
+      code: codeFences,
+      explanation: `This involves ${multiStep.steps.length} steps: ${multiStep.steps.map((s, i) => `${i + 1}. ${s.trim().substring(0, 20)}...`).join(", ")}`,
+    };
+
+    return result;
+  }
+
+  getContextHistory(): NLPResult[] {
+    return this.contextHistory;
+  }
+
+  addToContext(result: NLPResult): void {
+    this.contextHistory.push(result);
+    if (this.contextHistory.length > 10) {
+      this.contextHistory.shift();
+    }
+  }
+
+  learnCorrection(original: string, corrected: string): void {
+    this.userCorrections.set(original.toLowerCase(), corrected);
+  }
+
+  getLearnedCorrections(): Map<string, string> {
+    return this.userCorrections;
+  }
+
+applyCorrections(input: string): string {
+    let corrected = input;
+    for (const [original, replacement] of this.userCorrections) {
+      corrected = corrected.split(original).join(replacement);
+    }
+    return corrected;
   }
 }
 

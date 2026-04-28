@@ -275,7 +275,14 @@ export class Linter {
 
     if (fence.type === "compute") {
       if (this.isRuleEnabled("OM002")) {
-        if (fence.content.includes("eval(")) {
+        const unsafePatterns = [
+          /eval\s*\(/gi,
+          /window\s*\[\s*["'](?:eval|["'"])\s*\(\s*/gi,
+          /Function\s*\(/gi,
+          /new\s+Function\s*\(/gi,
+        ];
+        const hasUnsafe = unsafePatterns.some(pattern => pattern.test(fence.content));
+        if (hasUnsafe) {
           issues.push({
             ...this.rules.get("OM002")!,
             line: fence.line,
