@@ -5,6 +5,8 @@ export class OmniLangError extends Error {
     this.fence = fence;
     this.name = "OmniLangError";
   }
+  code;
+  fence;
 }
 export class ExecutionError extends OmniLangError {
   constructor(message, fence) {
@@ -276,20 +278,20 @@ export class OmniLang {
       },
       debounce: (fn, _ms) => {
         let timeout = null;
-        return (...args) => {
+        return ((...args) => {
           if (timeout) clearTimeout(timeout);
           timeout = setTimeout(() => fn(...args), _ms);
-        };
+        });
       },
       throttle: (fn, _ms) => {
         let lastCall = 0;
-        return (...args) => {
+        return ((...args) => {
           const now = Date.now();
           if (now - lastCall >= _ms) {
             lastCall = now;
             fn(...args);
           }
-        };
+        });
       },
       sleep: (ms) => {
         return new Promise((resolve) => setTimeout(resolve, ms));
@@ -351,6 +353,127 @@ export class OmniLang {
           const v = c === "x" ? r : r & 3 | 8;
           return v.toString(16);
         });
+      },
+      random: (min, max) => {
+        if (min === void 0) return Math.random();
+        const lo = min;
+        const hi = max ?? min + 100;
+        return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+      },
+      randomInt: (min, max) => {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      },
+      randomItem: (arr) => {
+        if (!arr || arr.length === 0) return void 0;
+        return arr[Math.floor(Math.random() * arr.length)];
+      },
+      shuffle: (arr) => {
+        if (!arr) return [];
+        const result = [...arr];
+        for (let i = result.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+      },
+      groupBy: (arr, key) => {
+        if (!arr) return {};
+        return arr.reduce((acc, item) => {
+          const group = typeof key === "function" ? key(item) : String(item[key]);
+          (acc[group] = acc[group] || []).push(item);
+          return acc;
+        }, {});
+      },
+      uniq: (arr) => {
+        if (!arr) return [];
+        return [...new Set(arr)];
+      },
+      uniqBy: (arr, fn) => {
+        if (!arr) return [];
+        const seen = /* @__PURE__ */ new Set();
+        return arr.filter((item) => {
+          const key = fn(item);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      },
+      chunk: (arr, size) => {
+        if (!arr || size <= 0) return [];
+        const result = [];
+        for (let i = 0; i < arr.length; i += size) {
+          result.push(arr.slice(i, i + size));
+        }
+        return result;
+      },
+      flatten: (arr) => {
+        if (!arr) return [];
+        return arr.flatMap((item) => Array.isArray(item) ? item : [item]);
+      },
+      deepGet: (obj, path, defaultValue) => {
+        const keys = path.split(".");
+        let current = obj;
+        for (const key of keys) {
+          if (current === null || current === void 0) return defaultValue;
+          current = current[key];
+        }
+        return current ?? defaultValue;
+      },
+      deepSet: (obj, path, value) => {
+        const keys = path.split(".");
+        const lastKey = keys.pop();
+        let current = obj;
+        for (const key of keys) {
+          if (!(key in current) || typeof current[key] !== "object") {
+            current[key] = {};
+          }
+          current = current[key];
+        }
+        current[lastKey] = value;
+      },
+      pick: (obj, keys) => {
+        if (!obj) return {};
+        const result = {};
+        for (const key of keys) {
+          if (key in obj) result[key] = obj[key];
+        }
+        return result;
+      },
+      omit: (obj, keys) => {
+        if (!obj) return {};
+        const result = { ...obj };
+        for (const key of keys) delete result[key];
+        return result;
+      },
+      merge: (...objs) => {
+        return Object.assign({}, ...objs);
+      },
+      debounce: (fn, ms) => {
+        let timeoutId;
+        return (...args) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => fn(...args), ms);
+        };
+      },
+      throttle: (fn, ms) => {
+        let lastCall = 0;
+        return (...args) => {
+          const now = Date.now();
+          if (now - lastCall >= ms) {
+            lastCall = now;
+            fn(...args);
+          }
+        };
+      },
+      memoize: (fn) => {
+        const cache = /* @__PURE__ */ new Map();
+        return (...args) => {
+          const key = JSON.stringify(args);
+          if (cache.has(key)) return cache.get(key);
+          const result = fn(...args);
+          cache.set(key, result);
+          return result;
+        };
       }
     };
     return context;
@@ -692,25 +815,140 @@ export class OmniLang {
       },
       body
     }).then(async (response) => {
+      const text = await response.text();
+      let parsed = text;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+      }
       const result = {
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
-        data: null
+        body: parsed
       };
-      const contentType = response.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        result.data = await response.json();
-      } else {
-        result.data = await response.text();
-      }
       if (name2) {
         this.scope.computed[name2] = result;
       }
       return result;
-    }).catch((e) => {
-      throw new ExecutionError(`HTTP error: ${e.message}`, fence);
     });
+  }
+  execute_sql(fence) {
+    const name2 = fence.attrs.name;
+    const query = fence.content?.trim();
+    if (!query) {
+      throw new ValidationError("sql fence requires a query", fence);
+    }
+    const validCommands = ["SELECT", "INSERT", "UPDATE", "DELETE"];
+    const command = query.split(" ")[0].toUpperCase();
+    if (!validCommands.includes(command)) {
+      throw new ValidationError(`sql fence: only ${validCommands.join(", ")} queries supported`, fence);
+    }
+    const mockData = {
+      users: [
+        [1, "alice@example.com", "2024-01-15"],
+        [2, "bob@example.com", "2024-01-16"],
+        [3, "charlie@example.com", "2024-01-17"]
+      ],
+      orders: [
+        [1, 1, 150, "pending"],
+        [2, 2, 250, "completed"]
+      ],
+      products: [
+        [1, "Widget", 29.99],
+        [2, "Gadget", 49.99]
+      ]
+    };
+    let rows = [];
+    let columns = [];
+    if (command === "SELECT") {
+      const tableMatch = query.match(/FROM\s+(\w+)/i);
+      const table = tableMatch ? tableMatch[1].toLowerCase() : "";
+      if (table && mockData[table]) {
+        rows = mockData[table];
+        columns = table === "users" ? ["id", "email", "created_at"] : table === "orders" ? ["id", "user_id", "amount", "status"] : ["id", "name", "price"];
+      } else if (query.includes("*")) {
+        rows = [[1, "sample"]];
+        columns = ["id", "value"];
+      } else if (query.toLowerCase().includes("where")) {
+        rows = [[1, "filtered"]];
+        columns = ["id", "value"];
+      } else {
+        rows = [];
+        columns = [];
+      }
+    }
+    const result = {
+      executed: true,
+      columns,
+      rows,
+      rowCount: rows.length
+    };
+    if (name2) {
+      this.scope.computed[name2] = result;
+    }
+    return result;
+  }
+  execute_webhook(fence) {
+    const name2 = fence.attrs.name;
+    const url = fence.attrs.url || fence.attrs.src;
+    const events = (fence.attrs.events || "all").split(",").map((e) => e.trim());
+    const method = (fence.attrs.method || "POST").toUpperCase();
+    const secret = fence.attrs.secret || "";
+    if (!url) {
+      throw new ValidationError("webhook fence requires url attribute", fence);
+    }
+    const validEvents = ["push", "pull_request", "issue", "comment", "release", "all"];
+    for (const event of events) {
+      if (!validEvents.includes(event) && event !== "*") {
+        throw new ValidationError(`webhook: invalid event "${event}"`, fence);
+      }
+    }
+    const result = {
+      registered: true,
+      url,
+      events,
+      method,
+      secret: secret ? "***" : ""
+    };
+    if (name2) {
+      this.scope.computed[name2] = result;
+    }
+    return result;
+  }
+  execute_cron(fence) {
+    const name2 = fence.attrs.name;
+    const cron = fence.attrs.cron || fence.attrs.schedule;
+    const command = fence.content?.trim();
+    const enabled = fence.attrs.enabled !== "false";
+    if (!cron) {
+      throw new ValidationError("cron fence requires cron or schedule attribute", fence);
+    }
+    const cronParts = cron.split(" ");
+    if (cronParts.length < 5 || cronParts.length > 6) {
+      throw new ValidationError("cron: invalid cron expression (need 5-6 parts)", fence);
+    }
+    const validSeconds = /^(\*|[0-5]?\d)$/;
+    const validMinute = /^(\*|[0-5]?\d)$/;
+    const validHour = /^(\*|[01]?\d|2[0-3])$/;
+    const validDay = /^(\*|[0-3]?\d)$/;
+    const validMonth = /^(\*|[1-9]|1[0-2])$/;
+    const validDow = /^(\*|[0-6])$/;
+    const parts = cronParts.length === 6 ? cronParts : ["0", ...cronParts];
+    if (!validSeconds.test(parts[0]) || !validMinute.test(parts[1]) || !validHour.test(parts[2]) || !validDay.test(parts[3]) || !validMonth.test(parts[4]) || !validDow.test(parts[5])) {
+      throw new ValidationError("cron: invalid cron part value", fence);
+    }
+    const result = {
+      active: true,
+      sections,
+      position,
+      style
+    };
+    if (name2) {
+      this.scope.computed[name2] = result;
+    }
+    this.scope._hud = result;
+    return result;
   }
   execute_lua(fence) {
     const name2 = fence.attrs.name;
@@ -871,20 +1109,20 @@ export class OmniLang {
   execute_background(fence) {
     const name2 = fence.attrs.name;
     const type2 = (fence.attrs.type || "gradient").toLowerCase();
-    const style = fence.attrs.style || fence.content?.trim() || "";
+    const style2 = fence.attrs.style || fence.content?.trim() || "";
     const validTypes = ["gradient", "pattern", "image", "noise", "mesh", "solid"];
     if (!validTypes.includes(type2)) {
       throw new ValidationError(`background fence: invalid type "${type2}" (must be one of: ${validTypes.join(", ")})`, fence);
     }
     const backgrounds = {
-      gradient: style || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      pattern: style || "repeating-linear-gradient(45deg, #667eea, #667eea 10px, #764ba2 10px, #764ba2 20px)",
-      image: style || "url(https://images.unsplash.com/photo-1557683316-973673baf926)",
-      noise: style || "url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzY2N2VhYSIvPjxmaWx0ZXIgaWQ9Im4iPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjIiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaz0iMiIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ0cmFuc3BhcmVudCIgc3R5bGU9ImZpbHRlcjogdXJsKCNuKSIvPjwvc3ZnPg==)",
-      mesh: style || "radial-gradient(at 40% 20%, hsla(260,100%,80%,0.3) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(200,100%,60%,0.3) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(180,100%,70%,0.3) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(280,100%,80%,0.3) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(240,100%,60%,0.3) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(300,100%,80%,0.3) 0px, transparent 50%)",
-      solid: style || "#1a1a2e"
+      gradient: style2 || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      pattern: style2 || "repeating-linear-gradient(45deg, #667eea, #667eea 10px, #764ba2 10px, #764ba2 20px)",
+      image: style2 || "url(https://images.unsplash.com/photo-1557683316-973673baf926)",
+      noise: style2 || "url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzY2N2VhYSIvPjxmaWx0ZXIgaWQ9Im4iPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjIiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaz0iMiIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSJ0cmFuc3BhcmVudCIgc3R5bGU9ImZpbHRlcjogdXJsKCNuKSIvPjwvc3ZnPg==)",
+      mesh: style2 || "radial-gradient(at 40% 20%, hsla(260,100%,80%,0.3) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(200,100%,60%,0.3) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(180,100%,70%,0.3) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(280,100%,80%,0.3) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(240,100%,60%,0.3) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(300,100%,80%,0.3) 0px, transparent 50%)",
+      solid: style2 || "#1a1a2e"
     };
-    const selectedBackground = backgrounds[type2] || style || backgrounds.gradient;
+    const selectedBackground = backgrounds[type2] || style2 || backgrounds.gradient;
     const result = { applied: true, style: selectedBackground, type: type2 };
     if (name2) {
       this.scope.computed[name2] = result;
@@ -1199,14 +1437,122 @@ export class OmniLang {
     const image = this.scope._image;
     const imageTag = image ? `<img id="omni-image" src="${image.source}" ${image.width ? `width="${image.width}"` : ""} ${image.height ? `height="${image.height}"` : ""} alt="${image.alt}" ${image.lazy ? 'loading="lazy"' : ""}>` : "";
     const animation = this.scope._animation;
-    const animationStyle = animation ? `
-    @keyframes ${animation.name} {
-      0% { opacity: 0; }
-      100% { opacity: 1; }
-    }
-    .omni-animate {
-      animation: ${animation.name} ${animation.duration}ms ${animation.easing} ${animation.delay}ms ${animation.iteration} ${animation.direction} ${animation.fillMode};
-    }` : "";
+    const animationStyles = animation ? `
+@keyframes omni-fade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.omni-animate {
+  animation: omni-fade ${animation.duration || 1e3}ms ${animation.easing || "ease"} ${animation.delay || 0}ms ${animation.iteration || 1} ${animation.direction || "normal"} ${animation.fillMode || "forwards"};
+}
+.omni-panel {
+  background: rgba(30, 30, 50, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(100, 100, 255, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 16px 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.omni-panel.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+}
+.omni-panel.holographic {
+  background: linear-gradient(135deg, rgba(255,0,200,0.2), rgba(0,200,255,0.2), rgba(200,255,0,0.2));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: 0 0 40px rgba(0, 200, 255, 0.4);
+}
+.omni-panel.translucent {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(15px);
+}
+.omni-panel.cyber {
+  background: #0a0a0a;
+  border: 2px solid #0ff;
+  text-shadow: 0 0 10px #0ff;
+}
+.omni-panel-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.omni-browser {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  background: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.omni-browser-header {
+  background: #2d2d2d;
+  padding: 8px 12px;
+  display: flex;
+  gap: 8px;
+}
+.omni-browser-file {
+  padding: 4px 12px;
+  border-bottom: 1px solid #333;
+}
+.omni-browser-file:hover {
+  background: #2a2a40;
+}
+.omni-demo {
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.omni-demo-header {
+  background: #2d2d2d;
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+}
+.omni-demo-editor {
+  min-height: 400px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  font-family: 'Monaco', monospace;
+  white-space: pre-wrap;
+}
+.omni-hud {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.9);
+  color: #0f0;
+  padding: 8px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 9999;
+}
+.omni-hud.top { top: 0; left: 0; right: 0; }
+.omni-hud.bottom { bottom: 0; left: 0; right: 0; }
+.omni-hud.left { top: 0; left: 0; bottom: 0; width: 200px; }
+.omni-hud.right { top: 0; right: 0; bottom: 0; width: 200px; }
+` : "";
+    const panel = this.scope._panel;
+    const panelHtml = panel ? `<div class="omni-panel ${panel.theme}" data-mode="${panel.mode}" data-once="${panel.once}">
+    <div class="omni-panel-toggle">${panel.collapsed ? "\u25B6" : "\u25BC"} ${panel.title}</div>
+  </div>` : "";
+    const browser = this.scope._browser;
+    const browserHtml = browser ? `<div class="omni-browser">
+    <div class="omni-browser-header">
+      <span>\u{1F4C1} ${browser.path}</span>
+    </div>
+    ${browser.files.map((f) => `<div class="omni-browser-file">${f.type === "dir" ? "\u{1F4C1}" : "\u{1F4C4}"} ${f.path}</div>`).join("")}
+  </div>` : "";
+    const demo = this.scope._demo;
+    const demoHtml = demo ? `<div class="omni-demo">
+    <div class="omni-demo-header">
+      <span>\u25B6 Live Demo</span>
+      ${demo.editable ? "<button>Edit</button>" : ""}
+    </div>
+    <div class="omni-demo-editor">${demo.code || "// No code"}</div>
+  </div>` : "";
+    const hud = this.scope._hud;
+    const hudHtml = hud ? `<div class="omni-hud ${hud.position}">
+    <div>\u{1F4CA} HUD: ${hud.sections.join(", ")}</div>
+  </div>` : "";
     const cspHeader = options.csp ? `<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:; media-src 'self' https:;">` : "";
     return `<!DOCTYPE html>
 <html lang="en">
@@ -1219,7 +1565,7 @@ export class OmniLang {
   <title>OmniLang Document</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    ${animationStyle}
+    ${animationStyles}
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       max-width: 900px;
@@ -1303,6 +1649,10 @@ ${bg ? '<div class="omni-content">' : ""}${body}${bg ? "</div>" : ""}
   ${videoPlayer}
   ${audioPlayer}
   ${imageTag}
+  ${panelHtml}
+  ${browserHtml}
+  ${demoHtml}
+  ${hudHtml}
   <script>
     ${chartScripts}
   </script>

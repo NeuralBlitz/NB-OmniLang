@@ -44,6 +44,9 @@ This major release introduces four new programming language runtimes and compreh
 | `omni:video` | Video playback with controls, poster | ✅ New |
 | `omni:image` | Image rendering with lazy loading | ✅ New |
 | `omni:animation` | CSS animations with easing | ✅ New |
+| `omni:sql` | SQL queries (mock data) | ✅ New |
+| `omni:webhook` | HTTP callbacks registration | ✅ New |
+| `omni:cron` | Scheduled tasks | ✅ New |
 
 ### Enhanced Error Handling
 
@@ -388,6 +391,56 @@ Add CSS animations to elements:
 ```omni:animation name="fade-in" duration="500" easing="ease-in-out"
 ```
 ```omni:animation duration="300" delay="100" iteration="infinite"
+```
+```
+
+### SQL Fence
+
+Mock SQL database queries (returns sample data):
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `name` | string | Store as named variable |
+
+```markdown
+```omni:sql name="users"
+SELECT * FROM users
+```
+```omni:sql name="orders"
+SELECT * FROM orders WHERE status = 'completed'
+```
+```
+
+### Webhook Fence
+
+Register HTTP callbacks:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `url` | string | Webhook URL (required) |
+| `events` | string | Comma-separated events |
+| `method` | string | HTTP method |
+| `secret` | string | Secret token |
+
+```markdown
+```omni:webhook url="https://example.com/hook" events="push,pull_request"
+```
+```
+
+### Cron Fence
+
+Schedule recurring tasks:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `cron` | string | Cron expression (required) |
+| `schedule` | string | Alias for cron |
+| `enabled` | boolean | Enable/disable |
+
+```markdown
+```omni:cron cron="0 * * * *" name="hourly"
+```
+```omni:cron cron="0 0 * * * *" name="precise"
 ```
 ```
 

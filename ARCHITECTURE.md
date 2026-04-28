@@ -91,6 +91,36 @@ Natural language to code.
 - **Entity Extraction**: Formats, operations, time periods
 - **Code Generation**: Automatic fence/code creation
 - **Extensible**: Custom intents/entities
+- **Multi-step Detection**: "first do this then that"
+- **Learning**: User corrections tracking
+- **DSL Patterns**: Custom command registration
+
+### 5. Debugger (`src/debugger.ts`)
+
+Debugging support for compute fences.
+
+- **Breakpoints**: Line-based with conditions
+- **Watch Expressions**: Track variables
+- **Step Control**: over, out, next
+- **Execution Frames**: Call stack tracking
+
+### 6. LSP Server (`src/lsp.ts`)
+
+Language Server Protocol for IDE integration.
+
+- **Protocol**: JSON-RPC 2.0
+- **Features**: Completions, definitions, references
+- **Diagnostics**: Real-time error reporting
+- **Debug Adapter**: VS Code debug protocol support
+
+### 7. Cloud API (`src/cloud.ts`)
+
+Cloud compilation and package management.
+
+- **Remote Execution**: Cloud-based code running
+- **Package Search**: npm registry integration
+- **Instance Management**: Cloud VM provisioning
+- **API Client**: RESTful cloud interface
 
 ### 5. REPL (`src/repl.ts`)
 
@@ -148,6 +178,9 @@ Input (.omd, .js, or NLP)
 | `video` | Video playback | src, autoplay, loop, muted, controls, poster |
 | `image` | Image rendering | src, width, height, alt, lazy |
 | `animation` | CSS animations | duration, easing, delay, iteration |
+| `sql` | SQL queries mock | SELECT, INSERT, UPDATE, DELETE |
+| `webhook` | HTTP callbacks | url, events, method, secret |
+| `cron` | Scheduled tasks | cron, schedule, enabled |
 | `query` | Data queries | name, data, where, order, limit |
 | `chart` | Visualizations | type, data, x, y, title |
 | `table` | HTML tables | data, headers |
@@ -226,18 +259,27 @@ interface Plugin {
 - [x] Enhanced error handling
 - [x] Multiple fence parsing fix
 
-### Phase 3: Enhanced NLP (planned v1.2)
-- [ ] Context-aware code generation
-- [ ] Multi-step task completion
-- [ ] Learning from user corrections
-- [ ] Custom DSL support
+### Phase 3: Enhanced NLP (v1.2) ✅ DONE
+- [x] Context-aware code generation
+- [x] Multi-step task completion
+- [x] Learning from user corrections
+- [x] Custom DSL support
+- [x] Debugger with breakpoints (src/debugger.ts)
+- [x] SQL fence (mock queries)
+- [x] Webhook fence (HTTP callbacks)
+- [x] Cron fence (scheduled tasks)
+- [x] Panel fence (foldable containers)
+- [x] File browser fence
+- [x] Demo fence (live code preview)
+- [x] HUD fence (repo overlay)
+- [x] Holographic themes (glass, translucent, neon, cyber)
 
-### Phase 4: Distribution (planned v2.0)
+### Phase 4: Distribution (v2.0) (In Progress)
 - [ ] Package manager integration
-- [ ] Debugger with breakpoints
+- [x] Debugger with breakpoints ✅ (see src/debugger.ts)
 - [ ] LSP server for IDE support
 - [ ] WASM compilation
-- [ ] Browser-native runtime
+- [x] Browser-native runtime (see notes below)
 - [ ] Mobile app
 - [ ] Cloud compilation API
 
